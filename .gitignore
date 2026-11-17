@@ -1,0 +1,21 @@
+# Entorno y secretos (NUNCA versionar .env real)
+.env
+.env.*
+!.env.example
+
+# Salidas en tiempo de ejecución
+logs/
+profiles/
+reports/
+
+# Python / pytest
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+

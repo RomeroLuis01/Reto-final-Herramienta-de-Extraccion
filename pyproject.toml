@@ -1,0 +1,17 @@
+[project]
+name = "herramienta-extraccion-web"
+version = "0.1.0"
+description = "Herramienta de Extracción Inteligente y Automatizada de Información Web"
+authors = ["Equipo Reto Final"]
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "integration: pruebas que requieren acceso a internet (desactiva con -m 'not integration')",
+    "selenium: pruebas que ejecutan Chrome real contra páginas locales controladas",
+]
