@@ -90,11 +90,13 @@ class PathConfig:
     profiles_dir: Optional[Path] = None
     reports_dir: Optional[Path] = None
     logs_dir: Optional[Path] = None
+    data_dir: Optional[Path] = None
 
     def __post_init__(self) -> None:
         profiles_env = os.getenv("PROFILES_DIR", "profiles")
         reports_env = os.getenv("REPORTS_DIR", "reports")
         logs_env = os.getenv("LOGS_DIR", "logs")
+        data_env = os.getenv("DATA_DIR", "data")
 
         if self.profiles_dir is None:
             self.profiles_dir = self.base_dir / profiles_env
@@ -102,8 +104,10 @@ class PathConfig:
             self.reports_dir = self.base_dir / reports_env
         if self.logs_dir is None:
             self.logs_dir = self.base_dir / logs_env
+        if self.data_dir is None:
+            self.data_dir = self.base_dir / data_env
 
-        for d in (self.profiles_dir, self.reports_dir, self.logs_dir):
+        for d in (self.profiles_dir, self.reports_dir, self.logs_dir, self.data_dir):
             d.mkdir(parents=True, exist_ok=True)  # type: ignore[union-attr]
 
 
@@ -120,6 +124,18 @@ class DiagnosticParameters:
 
 
 @dataclass
+class ExtractionParameters:
+    """Parámetros prudentes por defecto para la extracción del Avance 2."""
+
+    max_pages: int = int(os.getenv("EXTRACTION_MAX_PAGES", "3"))
+    max_records: int = int(os.getenv("EXTRACTION_MAX_RECORDS", "50"))
+    delay_s: float = float(os.getenv("EXTRACTION_DELAY_S", "1.0"))
+    default_format: str = os.getenv("EXTRACTION_DEFAULT_FORMAT", "json").lower()
+    page_param: str = os.getenv("EXTRACTION_PAGE_PARAM", "page")
+    table_name: str = os.getenv("EXTRACTION_SQLITE_TABLE", "dataset")
+
+
+@dataclass
 class ProjectConfig:
     """Configuración global del proyecto."""
 
@@ -127,6 +143,7 @@ class ProjectConfig:
     request: RequestConfig = field(default_factory=RequestConfig)
     paths: PathConfig = field(default_factory=PathConfig)
     diagnostic: DiagnosticParameters = field(default_factory=DiagnosticParameters)
+    extraction: ExtractionParameters = field(default_factory=ExtractionParameters)
     log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
     respect_robots_txt: bool = (
         os.getenv("RESPECT_ROBOTS_TXT", "true").lower() == "true"

@@ -1,73 +1,156 @@
 # Herramienta de Extracción Inteligente y Automatizada de Información Web
 
-## Avance 1 — Arquitectura, Configuración, Seguridad e Inspección Web
+**Estado:** Avance 1 (diagnóstico y perfilamiento) + **Avance 2 (extracción, selección, transformación/calidad y almacenamiento)**.
 
-### Estructura del proyecto
+El Avance 2 convierte los módulos 3 a 6 en componentes funcionales y los conecta al diagnóstico ya implementado en el Avance 1. La herramienta es modular, reutilizable, respeta `robots.txt` y barreras técnicas, y conserva datos originales y procesados por separado.
+
+## Estructura del proyecto
 
 ```
 reto-final/
 ├── src/
-│   ├── config/        # Módulo 1: Configuración, URL, parámetros y objetivos
-│   ├── inspector/     # Módulo 2: Inspección y diagnóstico web (HTTP/HTML/DOM)
-│   ├── extractor/     # Módulo 3: Motor de extracción (arquitectura Avance 2)
-│   ├── selector/      # Módulo 4: Selección de información (arquitectura Avance 2)
-│   ├── transformer/   # Módulo 5: Transformación y calidad (arquitectura Avance 2)
-│   ├── storage/       # Módulo 6: Almacenamiento y exportación (JSON base; Avance 2)
-│   ├── monitor/       # Módulo 7: Logging y reportes de diagnóstico
-│   └── utils/         # Perfiles reutilizables y seguridad (anti-SSRF/sanitización)
-├── profiles/          # Perfiles JSON sanitizados de sitios analizados
-├── reports/           # Reportes de diagnóstico (JSON + TXT)
-├── logs/              # Logs del sistema
-├── tests/             # Pruebas automatizadas (unitarias, Selenium local e integración)
-├── main.py            # Punto de entrada CLI / interactivo
+│   ├── config/        # M1: configuración, objetivos y reglas de extracción
+│   ├── inspector/     # M2: HTTP, HTML, DOM, protecciones y viabilidad
+│   ├── extractor/     # M3: requests, Selenium, API + servicio orquestador
+│   │   ├── base.py              # contratos, fábrica y selección automática
+│   │   ├── requests_extractor.py# HTML / JSON / XML / CSV estático
+│   │   ├── selenium_extractor.py# DOM dinámico, scroll infinito, "cargar más"
+│   │   ├── api_extractor.py     # REST/JSON con paginación controlada
+│   │   └── extraction_service.py# flujo completo diagnóstico → datasets
+│   ├── selector/      # M4: esquemas CSS/XPath/regex/atributo/JSONPath
+│   ├── transformer/   # M5: limpieza, normalización, validación, linaje, calidad
+│   ├── storage/       # M6: JSON, CSV, Excel, SQLite (+ stubs PostgreSQL/MongoDB)
+│   ├── monitor/       # M7: logging, reportes de diagnóstico y de extracción
+│   └── utils/         # perfiles, anti-SSRF y sanitización de secretos
+├── profiles/          # Perfiles JSON sanitizados
+├── reports/           # Reportes de diagnóstico y extracción (JSON + TXT)
+├── data/              # Datasets raw/processed (JSON/CSV/Excel/SQLite)
+├── logs/              # Logs sin credenciales ni tokens
+├── tests/             # Pruebas unitarias, Selenium simulado e integración local
+├── main.py            # CLI interactiva y por argumentos
 ├── .env.example       # Plantilla de configuración
-├── .gitignore         # Protección de .env y salidas de ejecución
-├── pyproject.toml     # Configuración de pytest y marcadores
+├── pyproject.toml     # Configuración de pytest
 └── requirements.txt   # Dependencias
 ```
 
-### Instalación
+## Instalación
 
 ```bash
 pip install -r requirements.txt
 copy .env.example .env
 ```
 
-### Uso
+Variables nuevas del Avance 2 en `.env`: `EXTRACTION_MAX_PAGES`, `EXTRACTION_MAX_RECORDS`, `EXTRACTION_DELAY_S`, `EXTRACTION_DEFAULT_FORMAT`, `EXTRACTION_PAGE_PARAM`, `EXTRACTION_SQLITE_TABLE` y `DATA_DIR`.
+
+## Uso
+
+### Modo interactivo
 
 ```bash
-# Modo interactivo
 python main.py
+```
 
-# Modo directo por línea de comandos
-python main.py --url https://books.toscrape.com --label "Books Demo"
+Tras el diagnóstico se pregunta si se desea ejecutar la extracción y se solicitan estrategia, límites y formatos.
 
-# Sin análisis Selenium
+### Modo por línea de comandos
+
+```bash
+# Diagnóstico + extracción automática
+python main.py --url https://books.toscrape.com --label "Books Demo" --extract
+
+# Estrategia forzada, límites prudentes y varios formatos
+python main.py --url https://quotes.toscrape.com/js/ --extract \
+  --strategy selenium --max-pages 2 --max-records 25 --format json,csv
+
+# API REST con esquema explícito y reutilización del perfil
+python main.py --url https://api.spacexdata.com/v4/launches --no-selenium \
+  --extract --strategy api --reuse-profile --schema schema.json --format sqlite
+
+# Solo diagnóstico / listado de perfiles
 python main.py --url https://books.toscrape.com --no-selenium
-
-# Listar perfiles guardados
 python main.py --list-profiles
 ```
 
-### Pruebas
+| Opción | Descripción |
+|---|---|
+| `--extract` | Ejecuta el flujo completo de extracción tras el diagnóstico. |
+| `--schema RUTA` | Esquema JSON de selección. Si se omite, se infiere del perfil/diagnóstico y de una página de muestra. |
+| `--strategy auto\|requests\|selenium\|api` | Motor de adquisición. `auto` usa `viability.recommended_strategies`. |
+| `--max-pages N` | Máximo de páginas/respuestas (por defecto 3). |
+| `--max-records N` | Máximo de registros (por defecto 50). |
+| `--format json,csv,excel,sqlite` | Formatos de salida; se generan versiones `raw` y `processed`. |
+| `--output-dir DIR` | Directorio de datasets (por defecto `data/`). |
+| `--reuse-profile` | Reutiliza el `current_diagnosis` guardado en el perfil. |
+| `--allow-private-network` | **Solo pruebas controladas:** permite `127.0.0.1`/`localhost` (anti-SSRF relajado). |
 
-```bash
-# Todas las pruebas (unitarias + Selenium controlado + integración)
-python -m pytest tests/ -v
+### Esquema de selección (opcional)
 
-# Solo pruebas unitarias (sin red ni navegador)
-python -m pytest tests/ -m "not integration and not selenium" -v
-
-# Solo pruebas de Selenium con páginas locales controladas
-python -m pytest tests/ -m selenium -v
-
-# Solo pruebas de integración con red
-python -m pytest tests/ -m integration -v
+```json
+{
+  "name": "productos",
+  "base_selector": "div.product",
+  "fields": [
+    {"name": "titulo", "selector": "span.title", "selector_type": "css", "attribute": "text", "required": true, "transform": "strip"},
+    {"name": "precio", "selector": "span.price", "selector_type": "css", "transform": "number"},
+    {"name": "url", "selector": "a.link", "attribute": "href"}
+  ],
+  "next_page_selector": "a[rel='next']"
+}
 ```
 
-### Seguridad y limitaciones documentadas
+Tipos de selector soportados: `css`, `xpath`, `regex`, `attribute` y `json_path`. En APIs se usan rutas tipo `data.items.title` o `results[0].name`.
 
-- **Anti-SSRF:** Se permiten únicamente esquemas `http` y `https`. Se rechazan `localhost`, loopback (`127.0.0.0/8`, `::1`), redes privadas, link-local/metadatos (`169.254.169.254`, `fe80::/10`), multicast, reservadas y resoluciones DNS internas. Se revalidan manualmente las redirecciones HTTP (máximo 5 saltos) y la URL final en Selenium.
-- **Limitación conocida (DNS rebinding):** La verificación DNS previa a la conexión mitiga accesos internos, aunque existe una ventana teórica TOCTOU entre la consulta DNS previa y la conexión realizada por `urllib3` o Chrome, dado que no se deshabilita TLS ni se reemplaza el resolutor del navegador.
-- **Protección de secretos:** No se almacenan contraseñas, tokens de consulta, cabeceras `Authorization`/`Set-Cookie` ni cookies de sesión en logs, reportes ni perfiles.
-- **Respeto a barreras:** El sistema identifica protecciones (CAPTCHA, HTTP 401/403/429/503, WAF, `robots.txt`) y detiene la operación sin eludir controles.
+## Flujo implementado (Avance 2)
+
+1. **Diagnóstico reutilizable (M1/M2):** se ejecuta o se recupera del perfil.
+2. **Barreras:** antes de cualquier petición se revisan CAPTCHA, autenticación, HTTP 401/403/429/503, SSRF y `robots.txt`.
+3. **Adquisición (M3):** el motor recomendado obtiene hasta `max_pages` páginas con pausa configurable y redirecciones validadas.
+4. **Selección (M4):** el esquema declarativo (explícito o inferido) convierte cada página en registros crudos.
+5. **Transformación (M5):** limpieza → normalización → validación → deduplicación → linaje.
+6. **Calidad:** se generan métricas de registros válidos/incompletos, duplicados y completitud por campo.
+7. **Almacenamiento (M6):** `<dominio>_raw_*` y `<dominio>_processed_*` separados en cada formato solicitado.
+8. **Reporte (M7):** JSON sanitizado + TXT legible con estrategia, esquema, páginas, calidad, linaje y archivos.
+9. **Trazabilidad:** cada registro procesado incluye `_lineage` con siete atributos obligatorios.
+
+## Linaje por registro
+
+Cada registro en `*_processed_*` conserva:
+
+- `source_url`
+- `acquisition_date`
+- `extraction_method`
+- `source_field`
+- `validation_status`
+- `applied_transformations`
+- `execution_id`
+
+Los registros `*_raw_*` conservan `_source` y `_field_meta` sin transformar, para permitir comparación y auditoría.
+
+## Mecanismos de adquisición y escenarios validados
+
+| # | Mecanismo | Motor | Escenario de validación |
+|---|---|---|---|
+| 1 | HTML estático + paginación clásica | `requests` + BeautifulSoup | `https://books.toscrape.com` y servidor local con `rel="next"` |
+| 2 | Datos estructurados JSON/XML/CSV | `requests` + parser integrado | respuestas locales JSON y endpoints públicos |
+| 3 | DOM renderizado / scroll infinito / cargar más | `Selenium` | `https://quotes.toscrape.com/js/`, `/scroll` y DOM simulado en pruebas |
+| 4 | API REST/JSON paginada | `api` | `https://api.spacexdata.com/v4/launches` y API local mockeada |
+
+Se cubren además cinco escenarios de control: página estática paginada, página dinámica, API paginada, `robots.txt` desfavorable y barrera CAPTCHA/403 simulada. Las pruebas automatizadas usan `127.0.0.1` con `allow_private_network=True` **solo en pruebas controladas**.
+
+## Seguridad y ética
+
+- Anti-SSRF en cada petición y redirección; se rechazan loopback, privadas, link-local, metadatos y DNS interno salvo habilitación explícita en pruebas.
+- Sanitización centralizada de URLs, cabeceras y estructuras antes de logs, perfiles y reportes.
+- Límite de tamaño de respuesta, reintentos, pausa entre páginas y máximo de registros para evitar cargas excesivas.
+- **No se eluden** CAPTCHAs, autenticaciones, controles de acceso ni restricciones de `robots.txt`. Ante una barrera, la ejecución se detiene y se reporta.
+- Limitación conocida: existe una ventana teórica de DNS rebinding (TOCTOU) entre la validación y la conexión, documentada también en el Avance 1.
+
+## Pruebas
+
+```bash
+python -m pytest -q
+python -m pytest -q tests/test_extraction_avance2.py
+python -m pytest tests/ -m "not integration and not selenium" -v
+```
+
+El conjunto incluye 146 pruebas: 130 del Avance 1 y 16 nuevas del Avance 2 (extractores, esquemas CSS/XPath/regex/JSONPath, transformación/linaje, almacenamiento, integración local, barreras y reportes).

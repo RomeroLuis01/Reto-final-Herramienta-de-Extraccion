@@ -1,0 +1,212 @@
+[
+  {
+    "member-photo-wrap": "01",
+    "member-index": "01",
+    "member-name": "Miku Kobato",
+    "member-role": "Guitarra · voz",
+    "_source": {
+      "url": "https://bandmaid-abcd123.vercel.app/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T21:29:28"
+    },
+    "_field_meta": {
+      "member-photo-wrap": {
+        "selector": ".member-photo-wrap",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-index": {
+        "selector": ".member-index",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-name": {
+        "selector": ".member-name.font-head",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-role": {
+        "selector": ".member-role",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "member-photo-wrap": "02",
+    "member-index": "02",
+    "member-name": "Saiki",
+    "member-role": "Voz principal",
+    "_source": {
+      "url": "https://bandmaid-abcd123.vercel.app/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T21:29:28"
+    },
+    "_field_meta": {
+      "member-photo-wrap": {
+        "selector": ".member-photo-wrap",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-index": {
+        "selector": ".member-index",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-name": {
+        "selector": ".member-name.font-head",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-role": {
+        "selector": ".member-role",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "member-photo-wrap": "03",
+    "member-index": "03",
+    "member-name": "Kanami",
+    "member-role": "Guitarra principal · composición",
+    "_source": {
+      "url": "https://bandmaid-abcd123.vercel.app/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T21:29:28"
+    },
+    "_field_meta": {
+      "member-photo-wrap": {
+        "selector": ".member-photo-wrap",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-index": {
+        "selector": ".member-index",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-name": {
+        "selector": ".member-name.font-head",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-role": {
+        "selector": ".member-role",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "member-photo-wrap": "04",
+    "member-index": "04",
+    "member-name": "Akane",
+    "member-role": "Batería",
+    "_source": {
+      "url": "https://bandmaid-abcd123.vercel.app/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T21:29:28"
+    },
+    "_field_meta": {
+      "member-photo-wrap": {
+        "selector": ".member-photo-wrap",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-index": {
+        "selector": ".member-index",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-name": {
+        "selector": ".member-name.font-head",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-role": {
+        "selector": ".member-role",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "member-photo-wrap": "05",
+    "member-index": "05",
+    "member-name": "MISA",
+    "member-role": "Bajo",
+    "_source": {
+      "url": "https://bandmaid-abcd123.vercel.app/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T21:29:28"
+    },
+    "_field_meta": {
+      "member-photo-wrap": {
+        "selector": ".member-photo-wrap",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-index": {
+        "selector": ".member-index",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-name": {
+        "selector": ".member-name.font-head",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "member-role": {
+        "selector": ".member-role",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  }
+]

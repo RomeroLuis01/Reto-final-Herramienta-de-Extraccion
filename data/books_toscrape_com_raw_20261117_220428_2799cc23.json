@@ -1,0 +1,2102 @@
+[
+  {
+    "h3": "A Light in the ...",
+    "a": "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html",
+    "price_color": "£51.77",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Tipping the Velvet",
+    "a": "https://books.toscrape.com/catalogue/tipping-the-velvet_999/index.html",
+    "price_color": "£53.74",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Soumission",
+    "a": "https://books.toscrape.com/catalogue/soumission_998/index.html",
+    "price_color": "£50.10",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Sharp Objects",
+    "a": "https://books.toscrape.com/catalogue/sharp-objects_997/index.html",
+    "price_color": "£47.82",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Sapiens: A Brief History ...",
+    "a": "https://books.toscrape.com/catalogue/sapiens-a-brief-history-of-humankind_996/index.html",
+    "price_color": "£54.23",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "The Requiem Red",
+    "a": "https://books.toscrape.com/catalogue/the-requiem-red_995/index.html",
+    "price_color": "£22.65",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "The Dirty Little Secrets ...",
+    "a": "https://books.toscrape.com/catalogue/the-dirty-little-secrets-of-getting-your-dream-job_994/index.html",
+    "price_color": "£33.34",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "The Coming Woman: A ...",
+    "a": "https://books.toscrape.com/catalogue/the-coming-woman-a-novel-based-on-the-life-of-the-infamous-feminist-victoria-woodhull_993/index.html",
+    "price_color": "£17.93",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "The Boys in the ...",
+    "a": "https://books.toscrape.com/catalogue/the-boys-in-the-boat-nine-americans-and-their-epic-quest-for-gold-at-the-1936-berlin-olympics_992/index.html",
+    "price_color": "£22.60",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "The Black Maria",
+    "a": "https://books.toscrape.com/catalogue/the-black-maria_991/index.html",
+    "price_color": "£52.15",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Starving Hearts (Triangular Trade ...",
+    "a": "https://books.toscrape.com/catalogue/starving-hearts-triangular-trade-trilogy-1_990/index.html",
+    "price_color": "£13.99",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Shakespeare's Sonnets",
+    "a": "https://books.toscrape.com/catalogue/shakespeares-sonnets_989/index.html",
+    "price_color": "£20.66",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Set Me Free",
+    "a": "https://books.toscrape.com/catalogue/set-me-free_988/index.html",
+    "price_color": "£17.46",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Scott Pilgrim's Precious Little ...",
+    "a": "https://books.toscrape.com/catalogue/scott-pilgrims-precious-little-life-scott-pilgrim-1_987/index.html",
+    "price_color": "£52.29",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Rip it Up and ...",
+    "a": "https://books.toscrape.com/catalogue/rip-it-up-and-start-again_986/index.html",
+    "price_color": "£35.02",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Our Band Could Be ...",
+    "a": "https://books.toscrape.com/catalogue/our-band-could-be-your-life-scenes-from-the-american-indie-underground-1981-1991_985/index.html",
+    "price_color": "£57.25",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Olio",
+    "a": "https://books.toscrape.com/catalogue/olio_984/index.html",
+    "price_color": "£23.88",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Mesaerion: The Best Science ...",
+    "a": "https://books.toscrape.com/catalogue/mesaerion-the-best-science-fiction-stories-1800-1849_983/index.html",
+    "price_color": "£37.59",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Libertarianism for Beginners",
+    "a": "https://books.toscrape.com/catalogue/libertarianism-for-beginners_982/index.html",
+    "price_color": "£51.33",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "It's Only the Himalayas",
+    "a": "https://books.toscrape.com/catalogue/its-only-the-himalayas_981/index.html",
+    "price_color": "£45.17",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/",
+      "page_number": 1,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:24"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "In Her Wake",
+    "a": "https://books.toscrape.com/catalogue/in-her-wake_980/index.html",
+    "price_color": "£12.84",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "How Music Works",
+    "a": "https://books.toscrape.com/catalogue/how-music-works_979/index.html",
+    "price_color": "£37.32",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Foolproof Preserving: A Guide ...",
+    "a": "https://books.toscrape.com/catalogue/foolproof-preserving-a-guide-to-small-batch-jams-jellies-pickles-condiments-and-more-a-foolproof-guide-to-making-small-batch-jams-jellies-pickles-condiments-and-more_978/index.html",
+    "price_color": "£30.52",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Chase Me (Paris Nights ...",
+    "a": "https://books.toscrape.com/catalogue/chase-me-paris-nights-2_977/index.html",
+    "price_color": "£25.27",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Black Dust",
+    "a": "https://books.toscrape.com/catalogue/black-dust_976/index.html",
+    "price_color": "£34.53",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Birdsong: A Story in ...",
+    "a": "https://books.toscrape.com/catalogue/birdsong-a-story-in-pictures_975/index.html",
+    "price_color": "£54.64",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "America's Cradle of Quarterbacks: ...",
+    "a": "https://books.toscrape.com/catalogue/americas-cradle-of-quarterbacks-western-pennsylvanias-football-factory-from-johnny-unitas-to-joe-montana_974/index.html",
+    "price_color": "£22.50",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Aladdin and His Wonderful ...",
+    "a": "https://books.toscrape.com/catalogue/aladdin-and-his-wonderful-lamp_973/index.html",
+    "price_color": "£53.13",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Worlds Elsewhere: Journeys Around ...",
+    "a": "https://books.toscrape.com/catalogue/worlds-elsewhere-journeys-around-shakespeares-globe_972/index.html",
+    "price_color": "£40.30",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Wall and Piece",
+    "a": "https://books.toscrape.com/catalogue/wall-and-piece_971/index.html",
+    "price_color": "£44.18",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "The Four Agreements: A ...",
+    "a": "https://books.toscrape.com/catalogue/the-four-agreements-a-practical-guide-to-personal-freedom_970/index.html",
+    "price_color": "£17.66",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "The Five Love Languages: ...",
+    "a": "https://books.toscrape.com/catalogue/the-five-love-languages-how-to-express-heartfelt-commitment-to-your-mate_969/index.html",
+    "price_color": "£31.05",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "The Elephant Tree",
+    "a": "https://books.toscrape.com/catalogue/the-elephant-tree_968/index.html",
+    "price_color": "£23.82",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "The Bear and the ...",
+    "a": "https://books.toscrape.com/catalogue/the-bear-and-the-piano_967/index.html",
+    "price_color": "£36.89",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Sophie's World",
+    "a": "https://books.toscrape.com/catalogue/sophies-world_966/index.html",
+    "price_color": "£15.94",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Penny Maybe",
+    "a": "https://books.toscrape.com/catalogue/penny-maybe_965/index.html",
+    "price_color": "£33.29",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Maude (1883-1993):She Grew Up ...",
+    "a": "https://books.toscrape.com/catalogue/maude-1883-1993she-grew-up-with-the-country_964/index.html",
+    "price_color": "£18.02",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "In a Dark, Dark ...",
+    "a": "https://books.toscrape.com/catalogue/in-a-dark-dark-wood_963/index.html",
+    "price_color": "£19.63",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Behind Closed Doors",
+    "a": "https://books.toscrape.com/catalogue/behind-closed-doors_962/index.html",
+    "price_color": "£52.22",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "You can't bury them ...",
+    "a": "https://books.toscrape.com/catalogue/you-cant-bury-them-all-poems_961/index.html",
+    "price_color": "£33.63",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "page_number": 2,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:25"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Slow States of Collapse: ...",
+    "a": "https://books.toscrape.com/catalogue/slow-states-of-collapse-poems_960/index.html",
+    "price_color": "£57.31",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "page_number": 3,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:26"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Reasons to Stay Alive",
+    "a": "https://books.toscrape.com/catalogue/reasons-to-stay-alive_959/index.html",
+    "price_color": "£26.41",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "page_number": 3,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:26"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Private Paris (Private #10)",
+    "a": "https://books.toscrape.com/catalogue/private-paris-private-10_958/index.html",
+    "price_color": "£47.61",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "page_number": 3,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:26"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "#HigherSelfie: Wake Up Your ...",
+    "a": "https://books.toscrape.com/catalogue/higherselfie-wake-up-your-life-free-your-soul-find-your-tribe_957/index.html",
+    "price_color": "£23.11",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "page_number": 3,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:26"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Without Borders (Wanderlove #1)",
+    "a": "https://books.toscrape.com/catalogue/without-borders-wanderlove-1_956/index.html",
+    "price_color": "£45.07",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "page_number": 3,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:26"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "When We Collided",
+    "a": "https://books.toscrape.com/catalogue/when-we-collided_955/index.html",
+    "price_color": "£31.77",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "page_number": 3,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:26"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "We Love You, Charlie ...",
+    "a": "https://books.toscrape.com/catalogue/we-love-you-charlie-freeman_954/index.html",
+    "price_color": "£50.27",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "page_number": 3,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:26"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Untitled Collection: Sabbath Poems ...",
+    "a": "https://books.toscrape.com/catalogue/untitled-collection-sabbath-poems-2014_953/index.html",
+    "price_color": "£14.27",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "page_number": 3,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:26"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Unseen City: The Majesty ...",
+    "a": "https://books.toscrape.com/catalogue/unseen-city-the-majesty-of-pigeons-the-discreet-charm-of-snails-other-wonders-of-the-urban-wilderness_952/index.html",
+    "price_color": "£44.18",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "page_number": 3,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:26"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  },
+  {
+    "h3": "Unicorn Tracks",
+    "a": "https://books.toscrape.com/catalogue/unicorn-tracks_951/index.html",
+    "price_color": "£18.78",
+    "instock": "In stock",
+    "_source": {
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "page_number": 3,
+      "method": "selenium",
+      "acquired_at": "2026-11-17T22:04:26"
+    },
+    "_field_meta": {
+      "h3": {
+        "selector": "h3",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "a": {
+        "selector": "a",
+        "selector_type": "css",
+        "attribute": "href",
+        "transform": "",
+        "required": false
+      },
+      "price_color": {
+        "selector": ".price_color",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      },
+      "instock": {
+        "selector": ".instock.availability",
+        "selector_type": "css",
+        "attribute": "text",
+        "transform": "",
+        "required": false
+      }
+    }
+  }
+]

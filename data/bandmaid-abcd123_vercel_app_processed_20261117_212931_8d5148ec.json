@@ -1,0 +1,97 @@
+[
+  {
+    "member-photo-wrap": "01",
+    "member-index": "01",
+    "member-name": "Miku Kobato",
+    "member-role": "Guitarra · voz",
+    "_lineage": {
+      "source_url": "https://bandmaid-abcd123.vercel.app/",
+      "acquisition_date": "2026-11-17T21:29:28",
+      "extraction_method": "selenium",
+      "source_field": "member-photo-wrap, member-index, member-name, member-role",
+      "validation_status": "valido",
+      "applied_transformations": [
+        "clean",
+        "validate",
+        "dedupe"
+      ],
+      "execution_id": "8d5148ec-7da7-4d23-84db-a989000175d9"
+    }
+  },
+  {
+    "member-photo-wrap": "02",
+    "member-index": "02",
+    "member-name": "Saiki",
+    "member-role": "Voz principal",
+    "_lineage": {
+      "source_url": "https://bandmaid-abcd123.vercel.app/",
+      "acquisition_date": "2026-11-17T21:29:28",
+      "extraction_method": "selenium",
+      "source_field": "member-photo-wrap, member-index, member-name, member-role",
+      "validation_status": "valido",
+      "applied_transformations": [
+        "clean",
+        "validate",
+        "dedupe"
+      ],
+      "execution_id": "8d5148ec-7da7-4d23-84db-a989000175d9"
+    }
+  },
+  {
+    "member-photo-wrap": "03",
+    "member-index": "03",
+    "member-name": "Kanami",
+    "member-role": "Guitarra principal · composición",
+    "_lineage": {
+      "source_url": "https://bandmaid-abcd123.vercel.app/",
+      "acquisition_date": "2026-11-17T21:29:28",
+      "extraction_method": "selenium",
+      "source_field": "member-photo-wrap, member-index, member-name, member-role",
+      "validation_status": "valido",
+      "applied_transformations": [
+        "clean",
+        "validate",
+        "dedupe"
+      ],
+      "execution_id": "8d5148ec-7da7-4d23-84db-a989000175d9"
+    }
+  },
+  {
+    "member-photo-wrap": "04",
+    "member-index": "04",
+    "member-name": "Akane",
+    "member-role": "Batería",
+    "_lineage": {
+      "source_url": "https://bandmaid-abcd123.vercel.app/",
+      "acquisition_date": "2026-11-17T21:29:28",
+      "extraction_method": "selenium",
+      "source_field": "member-photo-wrap, member-index, member-name, member-role",
+      "validation_status": "valido",
+      "applied_transformations": [
+        "clean",
+        "validate",
+        "dedupe"
+      ],
+      "execution_id": "8d5148ec-7da7-4d23-84db-a989000175d9"
+    }
+  },
+  {
+    "member-photo-wrap": "05",
+    "member-index": "05",
+    "member-name": "MISA",
+    "member-role": "Bajo",
+    "_lineage": {
+      "source_url": "https://bandmaid-abcd123.vercel.app/",
+      "acquisition_date": "2026-11-17T21:29:28",
+      "extraction_method": "selenium",
+      "source_field": "member-photo-wrap, member-index, member-name, member-role",
+      "validation_status": "valido",
+      "applied_transformations": [
+        "clean",
+        "validate",
+        "dedupe"
+      ],
+      "execution_id": "8d5148ec-7da7-4d23-84db-a989000175d9"
+    }
+  }
+]

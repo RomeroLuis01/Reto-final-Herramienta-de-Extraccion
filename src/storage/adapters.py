@@ -1,23 +1,61 @@
 """
-Módulo 6 — Almacenamiento y exportación (arquitectura preparada).
+Módulo 6 — Almacenamiento y exportación (funcional desde el Avance 2).
 
-Define las interfaces base y el adaptador de almacenamiento.
-Soportará: CSV, Excel, JSON, SQLite, PostgreSQL, MongoDB.
-Se implementará funcionalmente en el Avance 2/3.
+Persiste dos conjuntos separados:
+- *raw*: registros tal como los produjo el Módulo 4.
+- *processed*: registros transformados, con metadatos de linaje por fila.
+
+Formatos operativos: JSON, CSV, Excel (xlsx) y SQLite. PostgreSQL y MongoDB
+quedan como adaptadores documentados para un despliegue con servicios
+externos; no se activan sin configuración de credenciales.
 """
 
 from __future__ import annotations
 
+import csv
 import json
+import sqlite3
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Literal
 
+from src.monitor.logger import get_logger
+
+logger = get_logger("storage.adapters")
+
 StorageFormat = Literal["csv", "excel", "json", "sqlite", "postgresql", "mongodb"]
+
+
+def _scalarize(value: Any) -> Any:
+    """Convierte valores anidados a texto compatible con tablas."""
+    if value is None:
+        return ""
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    return json.dumps(value, ensure_ascii=False, default=str)
+
+
+def _flatten_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Aplana los valores de un registro para CSV/Excel/SQLite."""
+    return {key: _scalarize(value) for key, value in record.items()}
+
+
+def _all_fieldnames(data: list[dict[str, Any]]) -> list[str]:
+    """Devuelve la unión ordenada de todas las columnas presentes."""
+    fields: list[str] = []
+    for record in data:
+        for key in record:
+            if key not in fields:
+                fields.append(key)
+    return fields or ["_empty"]
 
 
 class BaseStorage(ABC):
     """Interfaz base para todos los adaptadores de almacenamiento."""
+
+    def __init__(self, output_dir: Path) -> None:
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     @abstractmethod
     def save(
@@ -41,14 +79,7 @@ class BaseStorage(ABC):
 
 
 class JsonStorage(BaseStorage):
-    """
-    Almacenamiento en JSON.
-    Implementación básica funcional para diagnósticos y perfiles.
-    """
-
-    def __init__(self, output_dir: Path) -> None:
-        self.output_dir = output_dir
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+    """Almacenamiento en JSON (diagnósticos, perfiles y datasets)."""
 
     def save(
         self,
@@ -59,18 +90,134 @@ class JsonStorage(BaseStorage):
         path = self.output_dir / f"{name}.json"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+        logger.info("JSON guardado: %s (%d registros)", path, len(data))
         return path
 
 
+class CsvStorage(BaseStorage):
+    """Almacenamiento en CSV delimitado por comas con UTF-8 BOM para Excel."""
+
+    def save(
+        self,
+        data: list[dict[str, Any]],
+        name: str,
+        **kwargs: Any,
+    ) -> Path:
+        path = self.output_dir / f"{name}.csv"
+        fieldnames: list[str] = list(kwargs.get("fieldnames") or _all_fieldnames(data))
+        with open(path, "w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            for record in data:
+                writer.writerow(_flatten_record(record))
+        logger.info("CSV guardado: %s (%d registros)", path, len(data))
+        return path
+
+
+class ExcelStorage(BaseStorage):
+    """Almacenamiento en libro de Excel (.xlsx) mediante pandas/openpyxl."""
+
+    def save(
+        self,
+        data: list[dict[str, Any]],
+        name: str,
+        **kwargs: Any,
+    ) -> Path:
+        import pandas as pd
+
+        path = self.output_dir / f"{name}.xlsx"
+        rows = [_flatten_record(record) for record in data]
+        fieldnames = list(kwargs.get("fieldnames") or _all_fieldnames(data))
+        dataframe = pd.DataFrame(rows, columns=fieldnames)
+        dataframe.to_excel(path, index=False, engine="openpyxl")
+        logger.info("Excel guardado: %s (%d registros)", path, len(data))
+        return path
+
+
+class SqliteStorage(BaseStorage):
+    """Almacenamiento en base SQLite local, una tabla por dataset."""
+
+    def save(
+        self,
+        data: list[dict[str, Any]],
+        name: str,
+        **kwargs: Any,
+    ) -> Path:
+        path = self.output_dir / f"{kwargs.get('database', 'datasets')}.sqlite"
+        table = str(kwargs.get("table") or name).replace("-", "_").replace(" ", "_")
+        table = "".join(ch for ch in table if ch.isalnum() or ch == "_")
+        if not table or table[0].isdigit():
+            table = f"t_{table}"
+
+        fieldnames = list(kwargs.get("fieldnames") or _all_fieldnames(data))
+        quoted = ", ".join(f'"{col}" TEXT' for col in fieldnames)
+        columns = ", ".join(f'"{col}"' for col in fieldnames)
+        placeholders = ", ".join("?" for _ in fieldnames)
+
+        with sqlite3.connect(path) as connection:
+            connection.execute(
+                f"CREATE TABLE IF NOT EXISTS {table} ({quoted})"  # noqa: S608
+            )
+            rows = [
+                tuple(_scalarize(record.get(col)) for col in fieldnames)
+                for record in data
+            ]
+            if rows:
+                connection.executemany(
+                    f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",  # noqa: S608
+                    rows,
+                )
+            connection.commit()
+        logger.info("SQLite guardado: %s tabla=%s (%d registros)", path, table, len(data))
+        return path
+
+
+class ExternalServiceStorage(BaseStorage):
+    """Base para servicios externos que requieren credenciales."""
+
+    service_name = "externo"
+
+    def save(
+        self,
+        data: list[dict[str, Any]],
+        name: str,
+        **kwargs: Any,
+    ) -> Path | str:
+        raise NotImplementedError(
+            f"El adaptador {self.service_name} requiere un servicio externo y "
+            "credenciales configuradas. No está habilitado en esta entrega; "
+            "use json, csv, excel o sqlite."
+        )
+
+
+class PostgresStorage(ExternalServiceStorage):
+    """Stub documentado para PostgreSQL (fuera del alcance local del Avance 2)."""
+
+    service_name = "postgresql"
+
+
+class MongoStorage(ExternalServiceStorage):
+    """Stub documentado para MongoDB (fuera del alcance local del Avance 2)."""
+
+    service_name = "mongodb"
+
+
 class StorageFactory:
-    """
-    Fábrica de adaptadores de almacenamiento (patrón Factory).
-    Se expandirá con todos los adaptadores en el Avance 2.
-    """
+    """Fábrica de adaptadores de almacenamiento (patrón Factory)."""
 
     _registry: dict[str, type[BaseStorage]] = {
         "json": JsonStorage,
+        "csv": CsvStorage,
+        "excel": ExcelStorage,
+        "sqlite": SqliteStorage,
+        "postgresql": PostgresStorage,
+        "mongodb": MongoStorage,
     }
+
+    @classmethod
+    def available(cls) -> list[str]:
+        """Lista los formatos registrados."""
+        return sorted(cls._registry)
 
     @classmethod
     def create(
@@ -78,24 +225,12 @@ class StorageFactory:
         format: StorageFormat,  # noqa: A002
         output_dir: Path,
     ) -> BaseStorage:
-        """
-        Crea el adaptador de almacenamiento para el formato dado.
-
-        Args:
-            format: Formato de almacenamiento.
-            output_dir: Directorio de salida.
-
-        Returns:
-            Instancia del adaptador.
-
-        Raises:
-            NotImplementedError: Si el formato no está implementado aún.
-        """
-        if format not in cls._registry:
+        """Crea el adaptador de almacenamiento para el formato dado."""
+        key = str(format).lower()
+        storage_class = cls._registry.get(key)
+        if storage_class is None:
             raise NotImplementedError(
                 f"Formato '{format}' no implementado. "
-                f"Disponibles: {list(cls._registry.keys())}. "
-                "El soporte completo se implementará en el Avance 2."
+                f"Disponibles: {', '.join(cls.available())}."
             )
-        return cls._registry[format](output_dir)
-
+        return storage_class(output_dir)

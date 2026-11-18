@@ -720,6 +720,110 @@ class DomInspector:
                 pass
 
     # ------------------------------------------------------------------
+    # API pública reutilizable por el motor de extracción (Avance 2)
+    # ------------------------------------------------------------------
+
+    def get_rendered_html(self) -> str:
+        """Devuelve el HTML del DOM ya renderizado por JavaScript."""
+        if self._driver is None:
+            return ""
+        try:
+            return str(self._driver.page_source)
+        except Exception as exc:  # pragma: no cover - WebDriver inestable
+            logger.debug("No se pudo leer page_source: %s", exc)
+            return ""
+
+    def scroll_to_bottom(self, wait_s: float = 0.6) -> bool:
+        """
+        Desplaza al final de la página y reporta si apareció más contenido.
+
+        Returns:
+            True si aumentaron la altura, el texto o el tamaño del DOM.
+        """
+        if self._driver is None:
+            return False
+        try:
+            height_before = int(
+                self._driver.execute_script(
+                    "return document.body ? document.body.scrollHeight : 0;"
+                )
+                or 0
+            )
+            text_before = self._safe_inner_text_length()
+            dom_before = len(self.get_rendered_html())
+
+            self._driver.execute_script(
+                "window.scrollTo(0, document.body ? document.body.scrollHeight : 0);"
+            )
+            time.sleep(max(0.1, min(2.0, wait_s)))
+
+            height_after = int(
+                self._driver.execute_script(
+                    "return document.body ? document.body.scrollHeight : 0;"
+                )
+                or 0
+            )
+            text_after = self._safe_inner_text_length()
+            dom_after = len(self.get_rendered_html())
+            return (
+                height_after > height_before + 30
+                or text_after > text_before + 10
+                or dom_after > dom_before * 1.03
+            )
+        except Exception as exc:
+            logger.debug("Scroll controlado fallido: %s", exc)
+            return False
+
+    def click_css(self, selector: str, wait_s: float = 0.6) -> bool:
+        """Hace clic en un selector CSS usando JavaScript y espera la carga."""
+        if self._driver is None or not selector:
+            return False
+        try:
+            elements = self._driver.find_elements(By.CSS_SELECTOR, selector)
+            if not elements:
+                return False
+            self._driver.execute_script("arguments[0].click();", elements[0])
+            time.sleep(max(0.1, min(2.0, wait_s)))
+            return True
+        except Exception as exc:
+            logger.debug("No se pudo hacer clic en '%s': %s", selector, exc)
+            return False
+
+    def navigate(self, url: str) -> dict[str, Any]:
+        """Navega a otra URL revalidando anti-SSRF antes y después."""
+        result: dict[str, Any] = {"ok": False, "final_url": sanitize_url(url), "error": None}
+        safe, reason = validate_url_security(
+            url,
+            resolve_dns=not self._allow_private_network,
+            allow_private_network=self._allow_private_network,
+        )
+        if not safe:
+            result["error"] = f"Navegación bloqueada por anti-SSRF: {reason}"
+            return result
+        if self._driver is None:
+            result["error"] = "WebDriver no inicializado."
+            return result
+        try:
+            self._driver.get(url)
+            current = getattr(self._driver, "current_url", url) or url
+            safe_after, reason_after = validate_url_security(
+                current,
+                resolve_dns=not self._allow_private_network,
+                allow_private_network=self._allow_private_network,
+            )
+            if not safe_after:
+                result["error"] = (
+                    f"Redirección bloqueada por anti-SSRF: {reason_after}"
+                )
+                self._driver.get("about:blank")
+                return result
+            result["ok"] = True
+            result["final_url"] = sanitize_url(current)
+        except Exception as exc:
+            result["error"] = f"Error al navegar con Selenium: {exc}"
+        return result
+
+    # ------------------------------------------------------------------
     # Creación del WebDriver
     # ------------------------------------------------------------------
 
