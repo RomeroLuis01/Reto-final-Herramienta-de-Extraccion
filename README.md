@@ -219,3 +219,7 @@ docker compose down
 Las imágenes inicializan usuarios y contraseñas solo cuando el volumen está vacío: editar las variables después de la primera inicialización no cambia las credenciales ya guardadas. `docker compose down -v` elimina los volúmenes y sus datos, así que no lo use si desea conservarlos. Si su entorno usa servidores externos, puede dejar los contenedores apagados y configurar sus URI directamente.
 
 Desde `python gui.py`, los botones **Ver reportes** y **Ver logs** permiten explorar los archivos generados en vistas organizadas por secciones o por eventos. Consulte el manual para más detalles.
+
+El botón **Ver datos** permite seleccionar la fuente **Archivos locales**, **PostgreSQL** o **MongoDB**. Para las bases de datos utiliza las conexiones configuradas en `.env` y muestra los datasets originales y procesados disponibles, con un máximo de 3000 registros por vista. Las consultas son de solo lectura; si el servidor no está disponible, inicie los contenedores y pulse **Actualizar**.
+
+Los nombres largos se acortan y terminan en un identificador; el visor los incluye como candidatos, pues ese patrón por sí solo no garantiza que pertenezcan al proyecto.

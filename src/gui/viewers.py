@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import csv
 import json
+import queue
 import sqlite3
+import threading
 from itertools import islice
 import re
 import tkinter as tk
@@ -12,6 +14,7 @@ from tkinter import font, scrolledtext, ttk
 from typing import Any
 
 from src.utils.security import sanitize_for_persistence
+from src.gui.database_viewer import list_datasets, read_database_dataset
 
 _MAX_BYTES = 5 * 1024 * 1024
 _MAX_ROWS = 3000
@@ -300,12 +303,19 @@ class DatasetViewer(tk.Toplevel):
         super().__init__(parent)
         self.directory = Path(directory)
         self.files: list[Path] = []
+        self._database_results: queue.Queue = queue.Queue()
+        self._request_id = 0
         self.title("Datos exportados")
         self.geometry("1100x650")
         container = ttk.Frame(self, padding=12)
         container.pack(fill="both", expand=True)
         toolbar = ttk.Frame(container)
         toolbar.pack(fill="x")
+        ttk.Label(toolbar, text="Fuente:").pack(side="left")
+        self.source = ttk.Combobox(toolbar, values=("Archivos locales", "PostgreSQL", "MongoDB"), state="readonly", width=15)
+        self.source.current(0)
+        self.source.pack(side="left", padx=(5, 8))
+        self.source.bind("<<ComboboxSelected>>", lambda event: self.refresh())
         ttk.Label(toolbar, text="Archivo:").pack(side="left")
         self.file_choice = ttk.Combobox(toolbar, state="readonly")
         self.file_choice.pack(side="left", fill="x", expand=True, padx=8)
@@ -338,6 +348,7 @@ class DatasetViewer(tk.Toplevel):
         self.detail = scrolledtext.ScrolledText(container, height=4, wrap="word", state="disabled")
         self.detail.pack(fill="x")
         self.refresh()
+        self.after(100, self._poll_database)
 
     def _horizontal_scroll(self, *args: str) -> None:
         """Aumenta el paso de las flechas sin alterar el arrastre ni las páginas."""
@@ -357,6 +368,16 @@ class DatasetViewer(tk.Toplevel):
         return "break"
 
     def refresh(self) -> None:
+        self._request_id += 1
+        self.tree.delete(*self.tree.get_children())
+        self._set_cell_detail("")
+        self.table_choice.set("")
+        self.table_choice.configure(state="disabled", values=())
+        if self.source.get() != "Archivos locales":
+            self.file_choice.set("")
+            self.file_choice["values"] = []
+            self._run_database("list", self.source.get())
+            return
         selected = self.file_choice.get()
         try:
             self.files = sorted((p for p in self.directory.iterdir() if p.is_file() and p.suffix.lower() in {".json", ".csv", ".xlsx", ".sqlite"}), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -375,6 +396,14 @@ class DatasetViewer(tk.Toplevel):
             self.notice.set("Aún no hay datasets locales. Ejecute una extracción con JSON, CSV, Excel o SQLite.")
 
     def _select_file(self, _event: Any = None) -> None:
+        if self.source.get() != "Archivos locales":
+            name = self.file_choice.get()
+            if name:
+                self._request_id += 1
+                self.tree.delete(*self.tree.get_children())
+                self._set_cell_detail("")
+                self._run_database("read", self.source.get(), name)
+            return
         self.table_choice.set("")
         self.table_choice.configure(state="disabled", values=())
         index = self.file_choice.current()
@@ -401,18 +430,56 @@ class DatasetViewer(tk.Toplevel):
         self._set_cell_detail("")
         try:
             columns, rows, truncated = read_dataset(self.files[index], self.table_choice.get() or None)
-            ids = [f"column_{i}" for i in range(len(columns))]
-            self.tree["columns"] = ids
-            widths = dataset_column_widths(columns, rows, font.nametofont("TkDefaultFont").measure)
-            for column_id, heading, width in zip(ids, columns, widths):
-                self.tree.heading(column_id, text=str(heading))
-                self.tree.column(column_id, width=width, minwidth=80, stretch=False)
-            for row in rows:
-                values = [json.dumps(v, ensure_ascii=False, default=str) if isinstance(v, (dict, list)) else "" if v is None else str(v) for v in row]
-                self.tree.insert("", "end", values=values)
-            self.notice.set(f"{len(rows)} registros mostrados." + (" Vista limitada a 3000 registros." if truncated else "") if columns else "El archivo no contiene datos tabulares.")
+            self._display_data(columns, rows, truncated)
         except Exception as exc:
             self.notice.set(f"No se pudo abrir el archivo: {exc}")
+
+    def _display_data(self, columns: list[str], rows: list[list[Any]], truncated: bool) -> None:
+        self.tree.delete(*self.tree.get_children())
+        ids = [f"column_{i}" for i in range(len(columns))]
+        self.tree["columns"] = ids
+        widths = dataset_column_widths(columns, rows, font.nametofont("TkDefaultFont").measure)
+        for column_id, heading, width in zip(ids, columns, widths):
+            self.tree.heading(column_id, text=str(heading))
+            self.tree.column(column_id, width=width, minwidth=80, stretch=False)
+        for row in rows:
+            values = [json.dumps(v, ensure_ascii=False, default=str) if isinstance(v, (dict, list)) else "" if v is None else str(v) for v in row]
+            self.tree.insert("", "end", values=values)
+        self.notice.set(f"{len(rows)} registros mostrados." + (" Vista limitada a 3000 registros." if truncated else "") if columns else "El dataset no contiene datos tabulares.")
+
+    def _run_database(self, action: str, source: str, name: str = "") -> None:
+        request_id = self._request_id
+        self.notice.set("Consultando la base de datos…")
+        def task() -> None:
+            try:
+                result = list_datasets(source) if action == "list" else read_database_dataset(source, name)
+                self._database_results.put((request_id, action, result, None))
+            except Exception as exc:
+                # Solo los errores controlados se muestran; nunca una URI del controlador.
+                message = str(exc) if isinstance(exc, ValueError) else "No se pudo consultar la base de datos."
+                self._database_results.put((request_id, action, None, message))
+        threading.Thread(target=task, daemon=True).start()
+
+    def _poll_database(self) -> None:
+        try:
+            while True:
+                request_id, action, result, error = self._database_results.get_nowait()
+                if request_id != self._request_id:
+                    continue
+                if error:
+                    self.notice.set(error)
+                elif action == "list":
+                    self.file_choice["values"] = result
+                    if result:
+                        self.file_choice.current(0)
+                        self._select_file()
+                    else:
+                        self.notice.set("No hay datasets guardados en esta base de datos.")
+                else:
+                    self._display_data(*result)
+        except queue.Empty:
+            pass
+        self.after(100, self._poll_database)
 
     def _set_cell_detail(self, text: str) -> None:
         self.detail.configure(state="normal")
