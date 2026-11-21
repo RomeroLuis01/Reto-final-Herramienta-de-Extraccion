@@ -35,10 +35,12 @@ reto-final/
 
 ## Instalación
 
-```bash
-pip install -r requirements.txt
-copy .env.example .env
+```powershell
+python -m pip install -r requirements.txt
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
+
+Si `.env` ya existe, no se sobrescribe: agregue manualmente los parámetros que necesite de `.env.example`.
 
 Variables nuevas del Avance 2 en `.env`: `EXTRACTION_MAX_PAGES`, `EXTRACTION_MAX_RECORDS`, `EXTRACTION_DELAY_S`, `EXTRACTION_DEFAULT_FORMAT`, `EXTRACTION_PAGE_PARAM`, `EXTRACTION_SQLITE_TABLE` y `DATA_DIR`.
 
@@ -185,5 +187,35 @@ extracciones; consulte [el manual](docs/manual_usuario.md) para más detalles.
 ## Bases de datos externas
 
 Para usar PostgreSQL o MongoDB instale `pip install "psycopg[binary]>=3.1" "pymongo>=4.6"`, configure respectivamente `EXTRACTION_POSTGRES_URI` o `EXTRACTION_MONGODB_URI` y, opcionalmente, `EXTRACTION_MONGODB_DATABASE` en `.env`. Las credenciales no se incluyen en los reportes. Seleccione `postgresql` o `mongodb` con `--format` o en la interfaz. PostgreSQL crea tablas con una columna JSONB `record`; MongoDB crea colecciones con documentos que contienen `record`. Los conjuntos originales y procesados se guardan por separado. Se requiere acceso a un servidor configurado por el usuario.
+
+### PostgreSQL y MongoDB locales con Docker
+
+Docker Compose permite ejecutar ambas bases sin instalarlas directamente en Windows. Se requiere Docker Desktop (o Docker Engine con Compose), iniciado, y Python en el equipo: la interfaz gráfica sigue ejecutándose fuera de Docker.
+
+1. Desde la carpeta del proyecto instale las dependencias y cree `.env` solo si aún no existe:
+
+   ```powershell
+   python -m pip install -r requirements.txt
+   if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+   ```
+
+2. Si ya tenía `.env`, conserve su contenido y copie a ese archivo las líneas de la sección **Bases de datos locales con Docker** de `.env.example`. Los usuarios, contraseñas y nombres `DOCKER_*` deben coincidir con los que aparecen en `EXTRACTION_POSTGRES_URI` y `EXTRACTION_MONGODB_URI`. Si cambia una contraseña con caracteres especiales en una URI, codifíquela para URL. Los valores de la plantilla son exclusivamente de demostración local; cambie las contraseñas para cualquier otro uso y no comparta `.env`.
+3. Inicie los servidores y compruebe su estado:
+
+   ```powershell
+   docker compose up -d
+   docker compose ps
+   ```
+
+   Espere a que los servicios estén `healthy`. La aplicación se conecta mediante `127.0.0.1` a los puertos 5432 y 27017, publicados solo en la computadora local. Esta dirección identifica al mismo equipo en el que se ejecuta la aplicación. Si alguno está ocupado, detenga el servicio que lo usa o cambie el puerto del host en `compose.yaml` y en la URI correspondiente en `.env`.
+4. Inicie o reinicie `python gui.py` después de editar `.env` y seleccione PostgreSQL y/o MongoDB en la interfaz. La primera descarga de imágenes requiere conexión a Internet. También se pueden usar las opciones `--format postgresql,mongodb` desde la CLI.
+
+Los datos permanecen en los volúmenes nombrados `postgres_data` y `mongo_data` al detener o recrear los contenedores. Para detenerlos sin borrar los datos:
+
+```powershell
+docker compose down
+```
+
+Las imágenes inicializan usuarios y contraseñas solo cuando el volumen está vacío: editar las variables después de la primera inicialización no cambia las credenciales ya guardadas. `docker compose down -v` elimina los volúmenes y sus datos, así que no lo use si desea conservarlos. Si su entorno usa servidores externos, puede dejar los contenedores apagados y configurar sus URI directamente.
 
 Desde `python gui.py`, los botones **Ver reportes** y **Ver logs** permiten explorar los archivos generados en vistas organizadas por secciones o por eventos. Consulte el manual para más detalles.

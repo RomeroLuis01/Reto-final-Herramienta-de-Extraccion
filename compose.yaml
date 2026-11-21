@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${DOCKER_POSTGRES_USER:-extractor}
+      POSTGRES_PASSWORD: ${DOCKER_POSTGRES_PASSWORD:-local_demo_password}
+      POSTGRES_DB: ${DOCKER_POSTGRES_DB:-extraccion}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  mongo:
+    image: mongo:7.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${DOCKER_MONGO_USER:-extractor}
+      MONGO_INITDB_ROOT_PASSWORD: ${DOCKER_MONGO_PASSWORD:-local_demo_password}
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand({ping: 1}).ok ? 0 : 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  postgres_data:
+  mongo_data:
