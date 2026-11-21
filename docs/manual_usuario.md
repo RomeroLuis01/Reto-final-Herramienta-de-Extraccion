@@ -135,3 +135,12 @@ Escenarios recomendados para prueba controlada: `books.toscrape.com`, `quotes.to
 - Las cabeceras y URLs se sanitizan antes de guardarse.
 - Si el diagnóstico detecta CAPTCHA, autenticación, HTTP 401/403/429/503 o `robots.txt` desfavorable, la extracción **se detiene y se reporta**. La herramienta no intenta eludir estas barreras.
 - La viabilidad técnica no sustituye la revisión de términos de servicio ni autorización legal.
+
+### Interfaz gráfica
+
+Ejecute `python gui.py` para abrir la aplicación de escritorio (requiere Tkinter,
+incluido habitualmente con Python). Escriba la URL y pulse **Diagnosticar** o
+**Diagnosticar y extraer**. Puede configurar la estrategia, límites, formatos y
+un esquema JSON opcional; los resultados y las rutas aparecen en la ventana.
+El diagnóstico y la extracción se ejecutan en segundo plano. Se mantienen los
+controles de barreras y `robots.txt` de la aplicación de consola.

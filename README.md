@@ -154,3 +154,8 @@ python -m pytest tests/ -m "not integration and not selenium" -v
 ```
 
 El conjunto incluye 146 pruebas: 130 del Avance 1 y 16 nuevas del Avance 2 (extractores, esquemas CSS/XPath/regex/JSONPath, transformación/linaje, almacenamiento, integración local, barreras y reportes).
+
+### Interfaz gráfica
+
+Ejecute `python gui.py`. La ventana permite diagnosticar, configurar y ejecutar
+extracciones; consulte [el manual](docs/manual_usuario.md) para más detalles.
