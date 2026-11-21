@@ -4,6 +4,7 @@
 !.env.example
 
 # Salidas en tiempo de ejecución
+data/
 logs/
 profiles/
 reports/
