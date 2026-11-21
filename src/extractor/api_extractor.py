@@ -51,6 +51,8 @@ class ApiExtractor(BaseExtractor):
         self._client = HttpClient(
             self.config.request,
             allow_private_network=self.allow_private_network,
+            auth_mode=config.get("auth_mode", "none"),
+            auth_origin=url,
         )
         page_number = 0
 

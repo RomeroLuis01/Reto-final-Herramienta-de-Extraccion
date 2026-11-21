@@ -29,6 +29,14 @@ Nunca versione `.env`.
 
 ### 4. Ejecución
 
+Para acceso HTTP autorizado, configure en el entorno o `.env` las variables
+`EXTRACTION_AUTH_USERNAME` y `EXTRACTION_AUTH_PASSWORD` (Basic) o
+`EXTRACTION_AUTH_TOKEN` (Bearer). Elija el modo en la interfaz gráfica o use
+`--auth basic` / `--auth bearer` en la línea de comandos. Nunca incluya las
+credenciales en la URL ni comparta el archivo `.env`. Use HTTPS, salvo pruebas
+locales. Solo se admiten los motores requests y API y se bloquean redirecciones
+o endpoints fuera del origen; Selenium y formularios no heredan la sesión.
+
 #### Modo interactivo
 
 ```bash

@@ -54,6 +54,8 @@ class RequestsExtractor(BaseExtractor):
         self._client = HttpClient(
             self.config.request,
             allow_private_network=self.allow_private_network,
+            auth_mode=config.get("auth_mode", "none"),
+            auth_origin=url,
         )
         current_url = url
         visited: set[str] = set()

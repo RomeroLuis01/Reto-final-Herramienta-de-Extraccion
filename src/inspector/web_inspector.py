@@ -65,6 +65,8 @@ class WebInspector:
             Diccionario de diagnóstico consolidado y sanitizado.
         """
         start_total = time.perf_counter()
+        if target.auth_mode != "none":
+            use_selenium = False
         safe_url = target.safe_url
         logger.info("Iniciando diagnóstico de: %s", safe_url)
 
@@ -74,6 +76,7 @@ class WebInspector:
             "final_url": safe_url,
             "domain": target.domain,
             "label": target.label,
+            "http_auth_mode": target.auth_mode,
             "site_identification": {
                 "domain": target.domain,
                 "label": target.label,
@@ -116,6 +119,7 @@ class WebInspector:
         http_inspector = HttpInspector(
             self._config.request,
             allow_private_network=target.allow_private_network,
+            auth_mode=target.auth_mode,
         )
         try:
             http_result = http_inspector.inspect(

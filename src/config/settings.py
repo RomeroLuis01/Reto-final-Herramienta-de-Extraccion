@@ -198,8 +198,14 @@ class AnalysisTarget:
     objectives: list[str] = field(default_factory=list)
     parameters: DiagnosticParameters = field(default_factory=DiagnosticParameters)
     extraction_rules: dict[str, Any] = field(default_factory=dict)
+    auth_mode: str = "none"
 
     def __post_init__(self) -> None:
+        if self.auth_mode not in ("none", "basic", "bearer"):
+            raise ValueError("Modo de autenticación desconocido.")
+        if self.auth_mode != "none":
+            from src.utils.auth import authorization
+            authorization(self.auth_mode, self.url, self.url)
         self.url = self._normalize_url(self.url)
         validated, message = validate_url(
             self.url, allow_private_network=self.allow_private_network
@@ -263,6 +269,7 @@ def register_target(
     objectives: list[str] | None = None,
     parameters: DiagnosticParameters | None = None,
     extraction_rules: dict[str, Any] | None = None,
+    auth_mode: str = "none",
 ) -> AnalysisTarget:
     """
     Registra y valida una URL objetivo para análisis.
@@ -279,4 +286,5 @@ def register_target(
         objectives=objectives or [],
         parameters=parameters or DiagnosticParameters(check_robots_txt=respect_robots_txt),
         extraction_rules=extraction_rules or {},
+        auth_mode=auth_mode,
     )

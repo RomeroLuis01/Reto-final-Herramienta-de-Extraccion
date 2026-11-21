@@ -278,6 +278,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--url", help="URL pública a analizar (http/https).")
     parser.add_argument("--label", default="", help="Etiqueta opcional del sitio.")
+    parser.add_argument("--auth", choices=("none", "basic", "bearer"), default="none",
+                        help="Autenticación HTTP autorizada mediante variables de entorno.")
     parser.add_argument(
         "--no-selenium",
         action="store_true",
@@ -406,6 +408,7 @@ def main(argv: list[str] | None = None) -> None:
             label=label,
             respect_robots_txt=config.respect_robots_txt,
             allow_private_network=args.allow_private_network,
+            auth_mode=args.auth,
         )
     except ValueError as exc:
         print(f"{Fore.RED}  ✗ Error al registrar URL: {exc}{Style.RESET_ALL}")
@@ -415,7 +418,9 @@ def main(argv: list[str] | None = None) -> None:
 
     reused_diagnosis = bool(
         args.reuse_profile
+        and args.auth == "none"
         and existing_profile
+        and (existing_profile.get("current_diagnosis") or {}).get("http_auth_mode", "none") == "none"
         and existing_profile.get("current_diagnosis")
     )
     if reused_diagnosis:

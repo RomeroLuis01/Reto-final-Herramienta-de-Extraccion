@@ -68,11 +68,20 @@ class ExtractionService:
         use_selenium: bool = True,
     ) -> dict[str, Any]:
         """Ejecuta la extracción y devuelve un resumen sanitizado."""
+        if target.auth_mode != "none":
+            if strategy == "selenium":
+                raise ValueError("La autenticación HTTP solo está disponible con requests o API.")
+            if strategy in (None, "auto"):
+                strategy = "requests"
         started_at = datetime.now().isoformat(timespec="seconds")
         execution_id = str(uuid.uuid4())
         profile = profile if profile is not None else self.profiles.load(target.url)
 
         effective_diagnosis = diagnosis
+        if target.auth_mode != "none" and effective_diagnosis is None:
+            reuse_diagnosis = False
+        if profile and (profile.get("current_diagnosis") or {}).get("http_auth_mode", "none") != "none":
+            reuse_diagnosis = False
         if effective_diagnosis is None:
             if reuse_diagnosis and profile and profile.get("current_diagnosis"):
                 effective_diagnosis = profile["current_diagnosis"]
@@ -115,6 +124,7 @@ class ExtractionService:
         pagination = effective_diagnosis.get("pagination") or {}
         schema_source = schema_config or rules.get("schema") or {}
         extraction_config: dict[str, Any] = {
+            "auth_mode": target.auth_mode,
             "diagnosis": effective_diagnosis,
             "max_pages": max_pages,
             "max_records": max_records,

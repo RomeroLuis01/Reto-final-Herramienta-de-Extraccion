@@ -29,6 +29,7 @@ class ExtractionApp:
         self.url = tk.StringVar()
         self.label = tk.StringVar()
         self.strategy = tk.StringVar(value="auto")
+        self.auth = tk.StringVar(value="none")
         self.pages = tk.StringVar(value=str(self.config.extraction.max_pages))
         self.records = tk.StringVar(value=str(self.config.extraction.max_records))
         self.schema = tk.StringVar()
@@ -48,7 +49,9 @@ class ExtractionApp:
         ttk.Entry(frame, textvariable=self.url).grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
         ttk.Label(frame, text="Etiqueta (opcional)").grid(row=1, column=0, sticky="w", pady=3)
         ttk.Entry(frame, textvariable=self.label).grid(row=1, column=1, columnspan=3, sticky="ew", pady=3)
-        ttk.Checkbutton(frame, text="Analizar contenido dinámico con Selenium", variable=self.selenium).grid(row=2, column=1, columnspan=3, sticky="w")
+        ttk.Checkbutton(frame, text="Analizar contenido dinámico con Selenium", variable=self.selenium).grid(row=2, column=1, sticky="w")
+        ttk.Label(frame, text="Autenticación HTTP").grid(row=2, column=2, sticky="e")
+        ttk.Combobox(frame, textvariable=self.auth, values=("none", "basic", "bearer"), state="readonly", width=8).grid(row=2, column=3, sticky="w")
         ttk.Label(frame, text="Estrategia").grid(row=3, column=0, sticky="w", pady=3)
         ttk.Combobox(frame, textvariable=self.strategy, values=("auto", "requests", "selenium", "api"), state="readonly", width=14).grid(row=3, column=1, sticky="w")
         ttk.Label(frame, text="Máx. páginas").grid(row=3, column=2, sticky="e", padx=5)
@@ -81,7 +84,8 @@ class ExtractionApp:
     def _start(self, extract: bool) -> None:
         try:
             target = register_target(self.url.get(), label=self.label.get(),
-                                     respect_robots_txt=self.config.respect_robots_txt)
+                                     respect_robots_txt=self.config.respect_robots_txt,
+                                     auth_mode=self.auth.get())
             pages, records = int(self.pages.get()), int(self.records.get())
             if pages < 1 or records < 1:
                 raise ValueError("Los límites deben ser enteros positivos.")

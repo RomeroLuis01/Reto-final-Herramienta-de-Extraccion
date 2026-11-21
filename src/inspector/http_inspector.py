@@ -26,6 +26,7 @@ from requests.exceptions import (
 from src.config.settings import RequestConfig, get_config
 from src.monitor.logger import get_logger
 from src.utils.security import sanitize_headers, sanitize_url, validate_url_security
+from src.utils.auth import authorization, origin
 
 logger = get_logger("inspector.http")
 
@@ -64,9 +65,11 @@ class HttpInspector:
         config: RequestConfig | None = None,
         *,
         allow_private_network: bool = False,
+        auth_mode: str = "none",
     ) -> None:
         self._cfg = config or get_config().request
         self._allow_private_network = allow_private_network
+        self._auth_mode = auth_mode
         self._session = self._build_session()
 
     def _build_session(self) -> requests.Session:
@@ -212,6 +215,10 @@ class HttpInspector:
                 redirects: list[str] = []
 
                 for _hop in range(self._cfg.max_redirects + 1):
+                    if self._auth_mode != "none" and origin(url) != origin(current_url):
+                        result["error_type"] = "cross_origin_auth_redirect"
+                        result["error"] = "Redirección fuera del origen bloqueada durante autenticación."
+                        return None
                     # Revalidar URL + DNS en cada salto antes de conectar
                     safe, reason = validate_url_security(
                         current_url,
@@ -230,6 +237,7 @@ class HttpInspector:
 
                     resp = self._session.get(
                         current_url,
+                        headers=authorization(self._auth_mode, url, current_url),
                         timeout=self._cfg.timeout,
                         allow_redirects=False,
                         stream=True,

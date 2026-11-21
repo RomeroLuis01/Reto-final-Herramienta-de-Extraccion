@@ -17,6 +17,7 @@ from charset_normalizer import from_bytes
 from src.config.settings import RequestConfig
 from src.monitor.logger import get_logger
 from src.utils.security import sanitize_url, validate_url_security
+from src.utils.auth import authorization, origin
 
 logger = get_logger("extractor.http_utils")
 
@@ -82,9 +83,13 @@ class HttpClient:
         config: RequestConfig,
         *,
         allow_private_network: bool = False,
+        auth_mode: str = "none",
+        auth_origin: str = "",
     ) -> None:
         self._cfg = config
         self._allow_private_network = allow_private_network
+        self._auth_mode = auth_mode
+        self._auth_origin = auth_origin
         self._session = requests.Session()
         self._session.headers.update(config.headers)
 
@@ -150,9 +155,12 @@ class HttpClient:
         response: requests.Response | None = None
 
         for _hop in range(max(1, self._cfg.max_redirects) + 1):
+            if self._auth_mode != "none" and origin(self._auth_origin) != origin(current_url):
+                raise ValueError("Destino fuera del origen bloqueado durante autenticación.")
             self._validate(current_url)
             response = self._session.get(
                 current_url,
+                headers=authorization(self._auth_mode, self._auth_origin, current_url),
                 params=params if not redirects else None,
                 timeout=self._cfg.timeout,
                 allow_redirects=False,
@@ -172,6 +180,10 @@ class HttpClient:
             )
 
         assert response is not None
+        if response.status_code in (401, 403, 429, 503):
+            status = response.status_code
+            response.close()
+            raise ValueError(f"Extracción detenida por respuesta HTTP {status}.")
         body_bytes = self._read_limited(response)
         encoding = response.encoding
         if not encoding:

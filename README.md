@@ -44,6 +44,21 @@ Variables nuevas del Avance 2 en `.env`: `EXTRACTION_MAX_PAGES`, `EXTRACTION_MAX
 
 ## Uso
 
+### Autenticación HTTP autorizada
+
+Para un sitio al que tenga acceso legítimo, defina `EXTRACTION_AUTH_USERNAME` y
+`EXTRACTION_AUTH_PASSWORD` para Basic, o `EXTRACTION_AUTH_TOKEN` para Bearer,
+en el entorno (o en `.env`, que no debe compartirse). Active explícitamente
+`--auth basic` o `--auth bearer`; en la interfaz gráfica seleccione el modo
+correspondiente. Las credenciales no se pasan como argumentos ni se guardan en
+los reportes. Use HTTPS fuera de pruebas locales.
+
+El modo autenticado solo admite `requests` y API; Selenium y formularios de
+inicio de sesión no están soportados. Se realiza un diagnóstico nuevo y se
+bloquean destinos o redirecciones de otro origen para no transmitir cabeceras
+ni cookies de sesión fuera del sitio. Se sigue consultando `robots.txt` sin
+credenciales y se mantienen los bloqueos por CAPTCHA y respuestas restrictivas.
+
 ### Modo interactivo
 
 ```bash
