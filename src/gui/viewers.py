@@ -321,8 +321,13 @@ class DatasetViewer(tk.Toplevel):
         frame.pack(fill="both", expand=True)
         self.tree = ttk.Treeview(frame, show="headings")
         self.tree.bind("<ButtonRelease-1>", self._show_cell)
+        self.tree.bind("<Shift-MouseWheel>", self._horizontal_wheel)
+        self.tree.bind("<Shift-Button-4>", lambda event: self._horizontal_step(-1))
+        self.tree.bind("<Shift-Button-5>", lambda event: self._horizontal_step(1))
+        self.tree.bind("<Shift-Left>", lambda event: self._horizontal_step(-1))
+        self.tree.bind("<Shift-Right>", lambda event: self._horizontal_step(1))
         vertical = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        horizontal = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
+        horizontal = ttk.Scrollbar(frame, orient="horizontal", command=self._horizontal_scroll)
         self.tree.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
         self.tree.grid(row=0, column=0, sticky="nsew")
         vertical.grid(row=0, column=1, sticky="ns")
@@ -333,6 +338,23 @@ class DatasetViewer(tk.Toplevel):
         self.detail = scrolledtext.ScrolledText(container, height=4, wrap="word", state="disabled")
         self.detail.pack(fill="x")
         self.refresh()
+
+    def _horizontal_scroll(self, *args: str) -> None:
+        """Aumenta el paso de las flechas sin alterar el arrastre ni las páginas."""
+        if len(args) == 3 and args[0] == "scroll" and args[2] == "units":
+            self.tree.xview_scroll(int(args[1]) * 80, "units")
+        else:
+            self.tree.xview(*args)
+
+    def _horizontal_step(self, direction: int) -> str:
+        self.tree.xview_scroll(direction * 80, "units")
+        return "break"
+
+    def _horizontal_wheel(self, event: Any) -> str:
+        if event.delta:
+            steps = max(1, abs(event.delta) // 120)
+            return self._horizontal_step(-steps if event.delta > 0 else steps)
+        return "break"
 
     def refresh(self) -> None:
         selected = self.file_choice.get()

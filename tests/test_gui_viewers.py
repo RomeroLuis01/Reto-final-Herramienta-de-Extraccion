@@ -128,3 +128,25 @@ def test_selecting_dataset_cell_shows_full_value():
     viewer.tree.item.return_value = ("corto", "un valor completo")
     DatasetViewer._show_cell(viewer, SimpleNamespace(x=10, y=20))
     viewer._set_cell_detail.assert_called_once_with("un valor completo")
+
+
+def test_horizontal_scroll_accelerates_units_but_preserves_drag_and_pages():
+    from src.gui.viewers import DatasetViewer
+
+    viewer = SimpleNamespace(tree=MagicMock())
+    DatasetViewer._horizontal_scroll(viewer, "scroll", "1", "units")
+    viewer.tree.xview_scroll.assert_called_once_with(80, "units")
+    DatasetViewer._horizontal_scroll(viewer, "moveto", "0.5")
+    DatasetViewer._horizontal_scroll(viewer, "scroll", "-1", "pages")
+    assert viewer.tree.xview.call_args_list[0].args == ("moveto", "0.5")
+    assert viewer.tree.xview.call_args_list[1].args == ("scroll", "-1", "pages")
+
+
+def test_shift_wheel_scrolls_in_both_directions():
+    from src.gui.viewers import DatasetViewer
+
+    viewer = SimpleNamespace(_horizontal_step=MagicMock(return_value="break"))
+    assert DatasetViewer._horizontal_wheel(viewer, SimpleNamespace(delta=120)) == "break"
+    assert DatasetViewer._horizontal_wheel(viewer, SimpleNamespace(delta=-240)) == "break"
+    assert viewer._horizontal_step.call_args_list[0].args == (-1,)
+    assert viewer._horizontal_step.call_args_list[1].args == (2,)
