@@ -106,3 +106,25 @@ def test_invalid_dataset_and_bounded_rows(tmp_path):
     assert columns == ["n"]
     assert len(rows) == 3000
     assert truncated
+
+
+def test_dataset_column_widths_use_sample_and_remain_bounded():
+    from src.gui.viewers import dataset_column_widths
+
+    widths = dataset_column_widths(
+        ["nombre", "descripción", "vacío"],
+        [["Ana", "un texto largo " * 100, None]],
+        lambda text: len(text) * 10,
+    )
+    assert widths == [100, 420, 100]
+
+
+def test_selecting_dataset_cell_shows_full_value():
+    from src.gui.viewers import DatasetViewer
+
+    viewer = SimpleNamespace(tree=MagicMock(), _set_cell_detail=MagicMock())
+    viewer.tree.identify_row.return_value = "row1"
+    viewer.tree.identify_column.return_value = "#2"
+    viewer.tree.item.return_value = ("corto", "un valor completo")
+    DatasetViewer._show_cell(viewer, SimpleNamespace(x=10, y=20))
+    viewer._set_cell_detail.assert_called_once_with("un valor completo")

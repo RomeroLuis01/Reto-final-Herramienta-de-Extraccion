@@ -8,7 +8,7 @@ from itertools import islice
 import re
 import tkinter as tk
 from pathlib import Path
-from tkinter import scrolledtext, ttk
+from tkinter import font, scrolledtext, ttk
 from typing import Any
 
 from src.utils.security import sanitize_for_persistence
@@ -283,6 +283,16 @@ def read_dataset(path: Path, table: str | None = None) -> tuple[list[str], list[
     return columns, rows[:_MAX_ROWS], len(rows) > _MAX_ROWS
 
 
+def dataset_column_widths(columns: list[str], rows: list[list[Any]], measure: Any) -> list[int]:
+    """Calcula anchos acotados usando encabezados y una muestra de registros."""
+    widths = [max(100, min(420, measure(str(column)[:100]) + 24)) for column in columns]
+    for row in rows[:100]:
+        for index, value in enumerate(row[:len(columns)]):
+            text = str(value)[:100] if value is not None else ""
+            widths[index] = max(widths[index], min(420, measure(text) + 24))
+    return widths
+
+
 class DatasetViewer(tk.Toplevel):
     """Consulta los datasets locales exportados en una tabla."""
 
@@ -310,6 +320,7 @@ class DatasetViewer(tk.Toplevel):
         frame = ttk.Frame(container)
         frame.pack(fill="both", expand=True)
         self.tree = ttk.Treeview(frame, show="headings")
+        self.tree.bind("<ButtonRelease-1>", self._show_cell)
         vertical = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
         horizontal = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
@@ -318,6 +329,9 @@ class DatasetViewer(tk.Toplevel):
         horizontal.grid(row=1, column=0, sticky="ew")
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(0, weight=1)
+        ttk.Label(container, text="Valor completo de la celda seleccionada").pack(anchor="w", pady=(8, 0))
+        self.detail = scrolledtext.ScrolledText(container, height=4, wrap="word", state="disabled")
+        self.detail.pack(fill="x")
         self.refresh()
 
     def refresh(self) -> None:
@@ -362,16 +376,34 @@ class DatasetViewer(tk.Toplevel):
         if index < 0 or index >= len(self.files):
             return
         self.tree.delete(*self.tree.get_children())
+        self._set_cell_detail("")
         try:
             columns, rows, truncated = read_dataset(self.files[index], self.table_choice.get() or None)
             ids = [f"column_{i}" for i in range(len(columns))]
             self.tree["columns"] = ids
-            for column_id, heading in zip(ids, columns):
+            widths = dataset_column_widths(columns, rows, font.nametofont("TkDefaultFont").measure)
+            for column_id, heading, width in zip(ids, columns, widths):
                 self.tree.heading(column_id, text=str(heading))
-                self.tree.column(column_id, width=160, minwidth=80)
+                self.tree.column(column_id, width=width, minwidth=80, stretch=False)
             for row in rows:
                 values = [json.dumps(v, ensure_ascii=False, default=str) if isinstance(v, (dict, list)) else "" if v is None else str(v) for v in row]
                 self.tree.insert("", "end", values=values)
             self.notice.set(f"{len(rows)} registros mostrados." + (" Vista limitada a 3000 registros." if truncated else "") if columns else "El archivo no contiene datos tabulares.")
         except Exception as exc:
             self.notice.set(f"No se pudo abrir el archivo: {exc}")
+
+    def _set_cell_detail(self, text: str) -> None:
+        self.detail.configure(state="normal")
+        self.detail.delete("1.0", "end")
+        self.detail.insert("1.0", text)
+        self.detail.configure(state="disabled")
+
+    def _show_cell(self, event: Any) -> None:
+        row_id = self.tree.identify_row(event.y)
+        column_id = self.tree.identify_column(event.x)
+        if not row_id or not column_id or column_id == "#0":
+            return
+        index = int(column_id[1:]) - 1
+        values = self.tree.item(row_id, "values")
+        if 0 <= index < len(values):
+            self._set_cell_detail(str(values[index]))
