@@ -476,8 +476,6 @@ def test_storage_formats_save_raw_and_processed(tmp_path: Path) -> None:
     csv_text = (tmp_path / "processed.csv").read_text(encoding="utf-8-sig")
     assert "titulo" in csv_text and "_lineage" in csv_text
 
-    with pytest.raises(NotImplementedError):
-        StorageFactory.create("postgresql", tmp_path).save(data, "x")
 
 
 # ---------------------------------------------------------------------------

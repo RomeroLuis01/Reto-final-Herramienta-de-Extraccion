@@ -152,3 +152,7 @@ incluido habitualmente con Python). Escriba la URL y pulse **Diagnosticar** o
 un esquema JSON opcional; los resultados y las rutas aparecen en la ventana.
 El diagnóstico y la extracción se ejecutan en segundo plano. Se mantienen los
 controles de barreras y `robots.txt` de la aplicación de consola.
+
+### Almacenamiento en PostgreSQL y MongoDB
+
+Instale las dependencias opcionales con `pip install "psycopg[binary]>=3.1" "pymongo>=4.6"`. Configure en `.env` la URI `EXTRACTION_POSTGRES_URI` o `EXTRACTION_MONGODB_URI`; para MongoDB puede configurar también `EXTRACTION_MONGODB_DATABASE`. En la interfaz o con `--format postgresql` o `--format mongodb`, los datos crudos y procesados se guardan en tablas o colecciones separadas. Las URIs deben mantenerse privadas.

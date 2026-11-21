@@ -5,15 +5,17 @@ Persiste dos conjuntos separados:
 - *raw*: registros tal como los produjo el Módulo 4.
 - *processed*: registros transformados, con metadatos de linaje por fila.
 
-Formatos operativos: JSON, CSV, Excel (xlsx) y SQLite. PostgreSQL y MongoDB
-quedan como adaptadores documentados para un despliegue con servicios
-externos; no se activan sin configuración de credenciales.
+Formatos operativos: JSON, CSV, Excel, SQLite, PostgreSQL y MongoDB.
+Los servicios externos requieren dependencias y configuración opcionales.
 """
 
 from __future__ import annotations
 
 import csv
 import json
+import hashlib
+import os
+import re
 import sqlite3
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -172,34 +174,75 @@ class SqliteStorage(BaseStorage):
         return path
 
 
-class ExternalServiceStorage(BaseStorage):
-    """Base para servicios externos que requieren credenciales."""
-
-    service_name = "externo"
-
-    def save(
-        self,
-        data: list[dict[str, Any]],
-        name: str,
-        **kwargs: Any,
-    ) -> Path | str:
-        raise NotImplementedError(
-            f"El adaptador {self.service_name} requiere un servicio externo y "
-            "credenciales configuradas. No está habilitado en esta entrega; "
-            "use json, csv, excel o sqlite."
-        )
+def _external_name(name: str, limit: int = 63) -> str:
+    """Crea identificadores seguros y conserva unicidad al truncar."""
+    value = re.sub(r"[^a-zA-Z0-9_]", "_", name)
+    if not value or value[0].isdigit():
+        value = "t_" + value
+    if len(value) > limit:
+        digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+        value = value[:limit - 13] + "_" + digest
+    return value.lower()
 
 
-class PostgresStorage(ExternalServiceStorage):
-    """Stub documentado para PostgreSQL (fuera del alcance local del Avance 2)."""
+class PostgresStorage(BaseStorage):
+    """Almacena registros como JSONB en una tabla por dataset."""
 
-    service_name = "postgresql"
+    def save(self, data: list[dict[str, Any]], name: str, **kwargs: Any) -> str:
+        uri = os.getenv("EXTRACTION_POSTGRES_URI")
+        if not uri:
+            raise ValueError("Defina EXTRACTION_POSTGRES_URI para usar PostgreSQL.")
+        try:
+            import psycopg
+        except ImportError:
+            raise RuntimeError("Instale la dependencia opcional: pip install psycopg[binary].") from None
+        table = _external_name(str(kwargs.get("table") or name))
+        try:
+            with psycopg.connect(uri) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(f'CREATE TABLE IF NOT EXISTS "{table}" (record JSONB NOT NULL)')
+                    if data:
+                        cursor.executemany(
+                            f'INSERT INTO "{table}" (record) VALUES (%s::jsonb)',
+                            [(json.dumps(record, ensure_ascii=False, default=str),) for record in data],
+                        )
+        except Exception:
+            raise RuntimeError("No se pudo guardar el dataset en PostgreSQL; revise la configuración y conexión.") from None
+        logger.info("PostgreSQL: dataset guardado (%d registros)", len(data))
+        return f"postgresql:tabla:{table}"
 
 
-class MongoStorage(ExternalServiceStorage):
-    """Stub documentado para MongoDB (fuera del alcance local del Avance 2)."""
+class MongoStorage(BaseStorage):
+    """Almacena un documento por registro en una colección por dataset."""
 
-    service_name = "mongodb"
+    def save(self, data: list[dict[str, Any]], name: str, **kwargs: Any) -> str:
+        uri = os.getenv("EXTRACTION_MONGODB_URI")
+        database = os.getenv("EXTRACTION_MONGODB_DATABASE", "extraction")
+        if not uri:
+            raise ValueError("Defina EXTRACTION_MONGODB_URI para usar MongoDB.")
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]{0,62}", database):
+            raise ValueError("EXTRACTION_MONGODB_DATABASE debe contener solo letras, números, guiones o guiones bajos.")
+        try:
+            from pymongo import MongoClient
+        except ImportError:
+            raise RuntimeError("Instale la dependencia opcional: pip install pymongo.") from None
+        collection = _external_name(str(kwargs.get("table") or name), limit=120)
+        try:
+            client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+            try:
+                db = client[database]
+                # Crear la colección incluso cuando no hay registros.
+                if data:
+                    records = json.loads(json.dumps(data, ensure_ascii=False, default=str))
+                    db[collection].insert_many([{"record": record} for record in records])
+                elif collection not in db.list_collection_names():
+                    db.create_collection(collection)
+            finally:
+                client.close()
+        except Exception:
+            raise RuntimeError("No se pudo guardar el dataset en MongoDB; revise la configuración y conexión.") from None
+        logger.info("MongoDB: dataset guardado (%d registros)", len(data))
+        return f"mongodb:coleccion:{database}.{collection}"
 
 
 class StorageFactory:

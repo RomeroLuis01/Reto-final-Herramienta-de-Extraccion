@@ -19,7 +19,7 @@ reto-final/
 │   │   └── extraction_service.py# flujo completo diagnóstico → datasets
 │   ├── selector/      # M4: esquemas CSS/XPath/regex/atributo/JSONPath
 │   ├── transformer/   # M5: limpieza, normalización, validación, linaje, calidad
-│   ├── storage/       # M6: JSON, CSV, Excel, SQLite (+ stubs PostgreSQL/MongoDB)
+│   ├── storage/       # M6: JSON, CSV, Excel, SQLite (+ PostgreSQL/MongoDB opcionales)
 │   ├── monitor/       # M7: logging, reportes de diagnóstico y de extracción
 │   └── utils/         # perfiles, anti-SSRF y sanitización de secretos
 ├── profiles/          # Perfiles JSON sanitizados
@@ -93,7 +93,7 @@ python main.py --list-profiles
 | `--strategy auto\|requests\|selenium\|api` | Motor de adquisición. `auto` usa `viability.recommended_strategies`. |
 | `--max-pages N` | Máximo de páginas/respuestas (por defecto 3). |
 | `--max-records N` | Máximo de registros (por defecto 50). |
-| `--format json,csv,excel,sqlite` | Formatos de salida; se generan versiones `raw` y `processed`. |
+| `--format json,csv,excel,sqlite,postgresql,mongodb` | Formatos de salida; se generan versiones `raw` y `processed`. |
 | `--output-dir DIR` | Directorio de datasets (por defecto `data/`). |
 | `--reuse-profile` | Reutiliza el `current_diagnosis` guardado en el perfil. |
 | `--allow-private-network` | **Solo pruebas controladas:** permite `127.0.0.1`/`localhost` (anti-SSRF relajado). |
@@ -174,3 +174,7 @@ El conjunto incluye 146 pruebas: 130 del Avance 1 y 16 nuevas del Avance 2 (extr
 
 Ejecute `python gui.py`. La ventana permite diagnosticar, configurar y ejecutar
 extracciones; consulte [el manual](docs/manual_usuario.md) para más detalles.
+
+## Bases de datos externas
+
+Para usar PostgreSQL o MongoDB instale `pip install "psycopg[binary]>=3.1" "pymongo>=4.6"`, configure respectivamente `EXTRACTION_POSTGRES_URI` o `EXTRACTION_MONGODB_URI` y, opcionalmente, `EXTRACTION_MONGODB_DATABASE` en `.env`. Las credenciales no se incluyen en los reportes. Seleccione `postgresql` o `mongodb` con `--format` o en la interfaz. PostgreSQL crea tablas con una columna JSONB `record`; MongoDB crea colecciones con documentos que contienen `record`. Los conjuntos originales y procesados se guardan por separado. Se requiere acceso a un servidor configurado por el usuario.

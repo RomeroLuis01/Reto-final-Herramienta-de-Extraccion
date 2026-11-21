@@ -181,7 +181,7 @@ def _print_summary(diagnosis: dict[str, Any]) -> None:
 def _parse_formats(value: str) -> list[str]:
     """Parsea una lista de formatos separada por comas."""
     formats = [item.strip().lower() for item in value.split(",") if item.strip()]
-    allowed = {"json", "csv", "excel", "sqlite"}
+    allowed = {"json", "csv", "excel", "sqlite", "postgresql", "mongodb"}
     invalid = [item for item in formats if item not in allowed]
     if not formats or invalid:
         raise argparse.ArgumentTypeError(
@@ -203,7 +203,7 @@ def _prompt_extraction_options(config: Any) -> dict[str, Any]:
         f"  Máximo de registros (Enter = {config.extraction.max_records}): "
     ).strip()
     formats_raw = input(
-        f"  Formatos json,csv,excel,sqlite (Enter = {config.extraction.default_format}): "
+        f"  Formatos json,csv,excel,sqlite,postgresql,mongodb (Enter = {config.extraction.default_format}): "
     ).strip()
     schema_path = input(
         "  Ruta de esquema JSON opcional (Enter = automático): "
@@ -324,7 +324,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         dest="formats",
         type=_parse_formats,
         default=None,
-        help="Formatos de salida separados por comas: json,csv,excel,sqlite.",
+        help="Formatos de salida separados por comas: json,csv,excel,sqlite,postgresql,mongodb.",
     )
     parser.add_argument(
         "--output-dir",

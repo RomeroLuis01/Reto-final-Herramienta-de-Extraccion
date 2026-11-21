@@ -35,7 +35,7 @@ class ExtractionApp:
         self.schema = tk.StringVar()
         self.selenium = tk.BooleanVar(value=True)
         self.formats = {name: tk.BooleanVar(value=name == "json")
-                        for name in ("json", "csv", "excel", "sqlite")}
+                        for name in ("json", "csv", "excel", "sqlite", "postgresql", "mongodb")}
         self.status = tk.StringVar(value="Listo")
         self._build()
         root.after(100, self._poll)
