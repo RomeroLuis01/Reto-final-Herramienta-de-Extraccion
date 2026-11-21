@@ -215,6 +215,17 @@ class ExtractionService:
             self._write_report(summary)
             return summary
 
+        try:
+            summary["changes"] = self.profiles.save_extraction(
+                target.url, summary["schema"], raw_records,
+                [page.data for page in batch.pages
+                 if page.content_format in ("json", "api") and page.data is not None],
+                execution_id,
+            )
+        except (OSError, ValueError, TypeError) as exc:
+            summary["errors"].append(f"No se pudo guardar el perfil de cambios: {exc}")
+            logger.warning("No se pudo guardar el perfil de cambios: %s", exc)
+
         summary["status"] = "ok"
         summary["finished_at"] = datetime.now().isoformat(timespec="seconds")
         self._write_report(summary)

@@ -51,6 +51,10 @@ class ProfileManager:
 
         profile = self.load(url) or self._empty_profile(url, domain)
 
+        previous_diagnosis = profile.get("current_diagnosis") or None
+        profile["diagnosis_changes"] = self.compare_diagnoses(
+            previous_diagnosis, clean_diagnosis
+        )
         profile["url"] = url
         profile["label"] = clean_diagnosis.get("label") or profile.get("label", "")
         profile["last_analysis"] = clean_diagnosis.get("diagnosis_timestamp")
@@ -124,6 +128,92 @@ class ProfileManager:
 
         logger.info("Perfil guardado: %s", profile_path.name)
         return profile_path
+
+    @staticmethod
+    def _changes(previous: Any, current: Any) -> dict[str, Any]:
+        """Compara estructuras sin confundir un dato ausente con una lista vacía."""
+        if previous is None or current is None:
+            return {"available": False}
+        def items(value: Any) -> set[str]:
+            if isinstance(value, dict):
+                return {json.dumps({key: val}, sort_keys=True, ensure_ascii=False, default=str)
+                        for key, val in value.items()}
+            if isinstance(value, list):
+                return {json.dumps(item, sort_keys=True, ensure_ascii=False, default=str)
+                        for item in value}
+            return {json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)}
+        before, after = items(previous), items(current)
+        return {"available": True, "added": [json.loads(v) for v in sorted(after - before)],
+                "removed": [json.loads(v) for v in sorted(before - after)]}
+
+    @classmethod
+    def compare_diagnoses(cls, previous: dict[str, Any] | None,
+                          current: dict[str, Any]) -> dict[str, Any]:
+        """Compara selectores y endpoints observados en dos diagnósticos."""
+        if not previous:
+            return {"baseline_available": False}
+        old_network = previous.get("network") or {}
+        new_network = current.get("network") or {}
+        return {
+            "baseline_available": True,
+            "selectors": cls._changes(previous.get("candidate_selectors"),
+                                      current.get("candidate_selectors")),
+            "endpoints": cls._changes(old_network.get("endpoints_observed"),
+                                      new_network.get("endpoints_observed")),
+        }
+
+    @staticmethod
+    def _json_paths(value: Any, prefix: str = "$") -> set[str]:
+        """Describe claves y tipos sin almacenar valores provenientes del sitio."""
+        kind = ("object" if isinstance(value, dict) else "array" if isinstance(value, list)
+                else "null" if value is None else "boolean" if isinstance(value, bool)
+                else "number" if isinstance(value, (int, float)) else "string")
+        paths = {f"{prefix}: {kind}"}
+        if isinstance(value, dict):
+            for key, child in value.items():
+                paths.update(ProfileManager._json_paths(child, f"{prefix}.{key}"))
+        elif isinstance(value, list):
+            for child in value:
+                paths.update(ProfileManager._json_paths(child, f"{prefix}[]"))
+        return paths
+
+    def save_extraction(self, url: str, schema: dict[str, Any],
+                        records: list[dict[str, Any]], json_pages: list[Any],
+                        execution_id: str) -> dict[str, Any]:
+        """Guarda la instantánea y devuelve diferencias frente a la extracción anterior."""
+        safe_url = sanitize_url(url)
+        domain = self._domain_key(safe_url)
+        profile = self.load(safe_url) or self._empty_profile(safe_url, domain)
+        fields = schema.get("fields") or []
+        snapshot = {
+            "execution_id": execution_id,
+            "fields": sorted(str(f.get("name")) for f in fields if f.get("name")),
+            "selectors": {str(f["name"]): {"selector": f.get("selector"),
+                          "selector_type": f.get("selector_type")}
+                          for f in fields if f.get("name")},
+            "base_selector": schema.get("base_selector"),
+            "columns": sorted({key for record in records for key in record
+                               if not key.startswith("_")}),
+            "json_structure": sorted(set().union(*(self._json_paths(page) for page in json_pages)))
+                              if json_pages else None,
+            "record_count": len(records),
+        }
+        previous = profile.get("extraction_snapshot")
+        changes: dict[str, Any] = {"baseline_available": bool(previous)}
+        if previous:
+            for key in ("fields", "selectors", "base_selector", "columns", "json_structure"):
+                changes[key] = self._changes(previous.get(key), snapshot.get(key))
+            old_count = previous.get("record_count")
+            changes["record_count"] = ({"available": True, "previous": old_count,
+                                        "current": len(records), "difference": len(records) - old_count}
+                                       if isinstance(old_count, int) else {"available": False})
+        profile["extraction_snapshot"] = snapshot
+        profile["extraction_changes"] = changes
+        profile = sanitize_for_persistence(profile)
+        path = self.profiles_dir / f"{domain}.json"
+        with open(path, "w", encoding="utf-8") as stream:
+            json.dump(profile, stream, ensure_ascii=False, indent=2, default=str)
+        return changes
 
     def load(self, url: str) -> Optional[dict[str, Any]]:
         """

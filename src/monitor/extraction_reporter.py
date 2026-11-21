@@ -130,6 +130,16 @@ class ExtractionReporter:
         )
         lines.append("")
 
+        lines.append("--- Cambios frente a la extracción anterior ---")
+        changes = summary.get("changes") or {}
+        if not changes.get("baseline_available"):
+            lines.append("  Sin extracción anterior para comparar.")
+        else:
+            for key, value in changes.items():
+                if key != "baseline_available":
+                    lines.append(f"  {key}: {json.dumps(value, ensure_ascii=False)}")
+        lines.append("")
+
         lines.append("--- Archivos generados ---")
         outputs = summary.get("outputs") or {}
         for format_name, paths in outputs.items():

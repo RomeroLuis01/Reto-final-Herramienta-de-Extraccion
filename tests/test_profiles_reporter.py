@@ -215,3 +215,42 @@ class TestDiagnosticReporter:
         assert "PROBABLE" in txt_text
         assert "NO IDENTIFICADA" in txt_text
 
+
+class TestChangeDetection:
+    def test_diagnosis_changes_distinguish_missing_and_empty(self, tmp_path):
+        manager = ProfileManager(tmp_path)
+        first = {**SAMPLE_DIAGNOSIS, "candidate_selectors": [".old"],
+                 "network": {"endpoints_observed": ["https://example.com/old"]}}
+        second = {**first, "candidate_selectors": [".new"],
+                  "network": {"endpoints_observed": []}}
+        manager.save(first)
+        manager.save(second)
+        changes = manager.load(first["url"])["diagnosis_changes"]
+        assert changes["selectors"]["added"] == [".new"]
+        assert changes["selectors"]["removed"] == [".old"]
+        assert changes["endpoints"]["removed"] == ["https://example.com/old"]
+        assert not manager.compare_diagnoses({}, second)["baseline_available"]
+        assert not manager._changes(None, [])["available"]
+
+    def test_extraction_comparison_and_persistence(self, tmp_path):
+        manager = ProfileManager(tmp_path)
+        first_schema = {"base_selector": ".old", "fields": [
+            {"name": "title", "selector": "h1", "selector_type": "css"},
+            {"name": "price", "selector": ".price", "selector_type": "css"}]}
+        second_schema = {"base_selector": ".new", "fields": [
+            {"name": "title", "selector": "h2", "selector_type": "css"},
+            {"name": "stock", "selector": ".stock", "selector_type": "css"}]}
+        assert not manager.save_extraction("https://example.com", first_schema,
+            [{"title": "secret", "price": 1}], [{"items": [{"title": "secret"}]}], "one")["baseline_available"]
+        changes = manager.save_extraction("https://example.com", second_schema,
+            [{"title": "other", "stock": True}, {"title": "another", "stock": False}],
+            [{"items": [{"title": "other", "stock": True}]}], "two")
+        assert changes["fields"]["removed"] == ["price"]
+        assert changes["columns"]["added"] == ["stock"]
+        assert changes["selectors"]["added"]
+        assert changes["base_selector"]["removed"] == [".old"]
+        assert "$.items[].stock: boolean" in changes["json_structure"]["added"]
+        assert changes["record_count"]["difference"] == 1
+        stored = (tmp_path / "example_com.json").read_text(encoding="utf-8")
+        assert "secret" not in stored and "another" not in stored
+        assert manager.load("https://example.com")["extraction_changes"] == changes
