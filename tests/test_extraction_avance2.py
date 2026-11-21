@@ -622,6 +622,74 @@ def test_extraction_service_end_to_end_local(local_server: str, tmp_path: Path) 
     assert "REPORTE DE EXTRACCIÓN" in report_txt.read_text(encoding="utf-8")
 
 
+@pytest.mark.parametrize(
+    ("formats", "expected_status", "expected_outputs"),
+    [
+        (["json", "postgresql", "csv"], "partial", {"json", "csv"}),
+        (["postgresql", "mongodb"], "error", set()),
+        (["json", "csv"], "ok", {"json", "csv"}),
+    ],
+)
+def test_storage_failures_keep_successful_formats(
+    local_server: str, tmp_path: Path, monkeypatch, formats, expected_status, expected_outputs
+) -> None:
+    original_create = StorageFactory.create
+
+    def create(format, output_dir):
+        if format in ("postgresql", "mongodb"):
+            raise RuntimeError("postgresql://user:secret@example.com")
+        return original_create(format, output_dir)
+
+    monkeypatch.setattr(StorageFactory, "create", create)
+    target = AnalysisTarget(url=f"{local_server}/", allow_private_network=True)
+    summary = ExtractionService(ProjectConfig()).run(
+        target, diagnosis=_diagnosis(f"{local_server}/"), schema_config=SCHEMA_CONFIG,
+        strategy="requests", max_pages=1, delay_s=0, formats=formats,
+        output_dir=tmp_path / "data",
+    )
+    assert summary["status"] == expected_status
+    assert set(summary["outputs"]) == expected_outputs
+    for paths in summary["outputs"].values():
+        assert Path(paths["raw"]).exists()
+        assert Path(paths["processed"]).exists()
+    assert "secret" not in str(summary)
+    report = Path(summary["report_files"]["txt"]).read_text(encoding="utf-8")
+    assert f"Estado            : {expected_status}" in report
+    assert "secret" not in report
+    for format in set(formats) - expected_outputs:
+        assert any(format in error for error in summary["errors"])
+
+
+def test_storage_failure_after_raw_preserves_path(local_server: str, tmp_path: Path, monkeypatch) -> None:
+    original_create = StorageFactory.create
+
+    def create(format, output_dir):
+        storage = original_create(format, output_dir)
+        if format == "json":
+            original_save = storage.save
+
+            def save(data, name, **kwargs):
+                if "_processed_" in name:
+                    raise OSError("secret")
+                return original_save(data, name, **kwargs)
+
+            storage.save = save
+        return storage
+
+    monkeypatch.setattr(StorageFactory, "create", create)
+    target = AnalysisTarget(url=f"{local_server}/", allow_private_network=True)
+    summary = ExtractionService(ProjectConfig()).run(
+        target, diagnosis=_diagnosis(f"{local_server}/"), schema_config=SCHEMA_CONFIG,
+        strategy="requests", max_pages=1, delay_s=0, formats=["json", "csv"],
+        output_dir=tmp_path / "data",
+    )
+    assert summary["status"] == "partial"
+    assert Path(summary["outputs"]["json"]["raw"]).exists()
+    assert "processed" not in summary["outputs"]["json"]
+    assert Path(summary["outputs"]["csv"]["processed"]).exists()
+    assert "secret" not in str(summary)
+
+
 def test_extraction_service_blocks_on_barrier_and_robots(
     local_server: str, tmp_path: Path
 ) -> None:

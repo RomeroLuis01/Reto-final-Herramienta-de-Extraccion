@@ -213,7 +213,7 @@ class ExtractionService:
 
         # ---- M6: guardado separado raw / processed ----
         try:
-            summary["outputs"] = self._persist(
+            summary["outputs"], storage_errors = self._persist(
                 target,
                 raw_records,
                 processed,
@@ -229,6 +229,13 @@ class ExtractionService:
             self._write_report(summary)
             return summary
 
+        summary["errors"].extend(storage_errors)
+        if storage_errors and not summary["outputs"]:
+            summary["status"] = "error"
+            summary["finished_at"] = datetime.now().isoformat(timespec="seconds")
+            self._write_report(summary)
+            return summary
+
         try:
             summary["changes"] = self.profiles.save_extraction(
                 target.url, summary["schema"], raw_records,
@@ -240,7 +247,7 @@ class ExtractionService:
             summary["errors"].append(f"No se pudo guardar el perfil de cambios: {exc}")
             logger.warning("No se pudo guardar el perfil de cambios: %s", exc)
 
-        summary["status"] = "ok"
+        summary["status"] = "partial" if storage_errors else "ok"
         summary["finished_at"] = datetime.now().isoformat(timespec="seconds")
         self._write_report(summary)
         logger.info(
@@ -374,36 +381,34 @@ class ExtractionService:
         formats: list[str],
         output_dir: Path | str | None,
         execution_id: str,
-    ) -> dict[str, Any]:
-        """Guarda cada formato en dos archivos: raw y processed."""
+    ) -> tuple[dict[str, Any], list[str]]:
+        """Guarda cada formato de forma independiente y conserva salidas parciales."""
         data_dir = Path(output_dir) if output_dir else Path(self.config.paths.data_dir)  # type: ignore[arg-type]
         data_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_id = execution_id[:8]
         domain = re.sub(r"[^a-zA-Z0-9_-]+", "_", target.domain).strip("_") or "sitio"
         outputs: dict[str, Any] = {}
+        errors: list[str] = []
 
         for fmt in formats:
-            storage = StorageFactory.create(fmt, data_dir)  # type: ignore[arg-type]
-            raw_name = f"{domain}_raw_{stamp}_{safe_id}"
-            processed_name = f"{domain}_processed_{stamp}_{safe_id}"
-            raw_path = storage.save(
-                raw_records,
-                raw_name,
-                table=raw_name,
-                database=f"{domain}_datasets",
-            )
-            processed_path = storage.save(
-                processed,
-                processed_name,
-                table=processed_name,
-                database=f"{domain}_datasets",
-            )
-            outputs[fmt] = {
-                "raw": str(raw_path),
-                "processed": str(processed_path),
-            }
-        return outputs
+            try:
+                storage = StorageFactory.create(fmt, data_dir)  # type: ignore[arg-type]
+                for stage, records in (("raw", raw_records), ("processed", processed)):
+                    name = f"{domain}_{stage}_{stamp}_{safe_id}"
+                    path = storage.save(
+                        records, name, table=name, database=f"{domain}_datasets"
+                    )
+                    outputs.setdefault(fmt, {})[stage] = str(path)
+            except Exception as exc:
+                # No registrar la excepción: puede contener contraseñas o URI.
+                hint = {
+                    "postgresql": " Revise EXTRACTION_POSTGRES_URI y la conexión.",
+                    "mongodb": " Revise EXTRACTION_MONGODB_URI y la conexión.",
+                }.get(fmt, " Revise el formato y los permisos de escritura.")
+                errors.append(f"No se pudo guardar {fmt} ({type(exc).__name__}).{hint}")
+                logger.warning("No se pudo guardar el formato %s (%s)", fmt, type(exc).__name__)
+        return outputs, errors
 
     def _write_report(self, summary: dict[str, Any]) -> None:
         """Persiste el reporte y añade las rutas al resumen devuelto."""
