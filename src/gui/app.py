@@ -12,7 +12,7 @@ from typing import Any
 from src.config.settings import get_config, register_target
 from src.extractor.extraction_service import ExtractionService
 from src.inspector.web_inspector import WebInspector
-from src.gui.viewers import FileViewer
+from src.gui.viewers import DatasetViewer, FileViewer
 from src.monitor.logger import setup_logging
 from src.monitor.reporter import DiagnosticReporter
 from src.selector.builder import load_schema_file
@@ -77,7 +77,8 @@ class ExtractionApp:
         self.extract_button.pack(side="left")
         ttk.Button(actions, text="Ver reportes", command=lambda: FileViewer(self.root, self.config.paths.reports_dir, "reports")).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Ver logs", command=lambda: FileViewer(self.root, self.config.paths.logs_dir, "logs")).pack(side="left", padx=(8, 0))
-        ttk.Label(actions, textvariable=self.status).pack(side="left", padx=12)
+        ttk.Button(actions, text="Ver datos", command=lambda: DatasetViewer(self.root, self.config.paths.data_dir)).pack(side="left", padx=(8, 0))
+        ttk.Label(frame, textvariable=self.status).grid(row=9, column=0, columnspan=4, sticky="w")
         self.output = scrolledtext.ScrolledText(frame, wrap="word", state="disabled")
         self.output.grid(row=8, column=0, columnspan=4, sticky="nsew")
 

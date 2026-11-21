@@ -1,11 +1,14 @@
 """Visores de reportes y registros para la interfaz de escritorio."""
 from __future__ import annotations
 
+import csv
 import json
+import sqlite3
+from itertools import islice
 import re
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk
+from tkinter import scrolledtext, ttk
 from typing import Any
 
 from src.utils.security import sanitize_for_persistence
@@ -116,6 +119,10 @@ class FileViewer(tk.Toplevel):
         horizontal.grid(row=1, column=0, sticky="ew")
         tree_frame.columnconfigure(0, weight=1)
         tree_frame.rowconfigure(0, weight=1)
+        if kind == "reports":
+            self.report_text = scrolledtext.ScrolledText(tree_frame, wrap="word", state="disabled")
+            self.report_text.grid(row=0, column=0, sticky="nsew")
+            self.report_text.grid_remove()
         if kind == "logs":
             ttk.Label(container, text="Detalle del evento seleccionado").pack(anchor="w", pady=(8, 0))
             self.detail = tk.Text(container, height=5, wrap="word", state="disabled")
@@ -125,7 +132,7 @@ class FileViewer(tk.Toplevel):
     def refresh(self) -> None:
         selected = self.file_choice.get()
         try:
-            self.files = sorted(self.directory.glob("*.json" if self.kind == "reports" else "*.log"),
+            self.files = sorted((p for p in self.directory.iterdir() if p.is_file() and p.suffix.lower() in ({".json", ".txt"} if self.kind == "reports" else {".log"})),
                                 key=lambda p: p.stat().st_mtime, reverse=True)
         except OSError as exc:
             self.files = []
@@ -139,11 +146,17 @@ class FileViewer(tk.Toplevel):
             self.file_choice.set("")
             self.tree.delete(*self.tree.get_children())
             self.notice.set("Aún no hay archivos generados en la carpeta configurada.")
+            if self.kind == "reports":
+                self.report_text.grid_remove()
+                self.tree.grid()
             if self.kind == "logs":
                 self._set_detail("")
 
     def _selected(self, _event: Any = None) -> None:
         self.tree.delete(*self.tree.get_children())
+        if self.kind == "reports":
+            self.report_text.grid_remove()
+            self.tree.grid()
         if self.kind == "logs":
             self._set_detail("")
         index = self.file_choice.current()
@@ -151,12 +164,22 @@ class FileViewer(tk.Toplevel):
             return
         try:
             if self.kind == "reports":
-                data = read_report(self.files[index])
+                path = self.files[index]
                 self._report_rows = 0
-                for key, value in data.items():
-                    self._add_report("", label(str(key)), value, True)
+                if path.suffix.lower() == ".txt":
+                    text = read_report_text(path)
+                    self.tree.grid_remove()
+                    self.report_text.configure(state="normal")
+                    self.report_text.delete("1.0", "end")
+                    self.report_text.insert("1.0", text)
+                    self.report_text.configure(state="disabled")
+                    self.report_text.grid()
+                else:
+                    data = read_report(path)
+                    for key, value in data.items():
+                        self._add_report("", label(str(key)), value, True)
                 suffix = " Vista limitada a 3000 campos." if self._report_rows >= _MAX_ROWS else ""
-                self.notice.set("Seleccione o despliegue una sección para consultar sus datos." + suffix)
+                self.notice.set(("Reporte de texto." if path.suffix.lower() == ".txt" else "Seleccione o despliegue una sección para consultar sus datos.") + suffix)
             else:
                 entries, truncated = read_log(self.files[index])
                 for entry in entries[-_MAX_ROWS:]:
@@ -199,3 +222,156 @@ class FileViewer(tk.Toplevel):
         selection = self.tree.selection()
         values = self.tree.item(selection[0], "values") if selection else ()
         self._set_detail(str(values[3]) if len(values) > 3 else "")
+
+
+def read_report_text(path: Path) -> str:
+    """Lee un reporte de texto, aplicando el mismo límite del visor JSON."""
+    if path.stat().st_size > _MAX_BYTES:
+        raise ValueError("El reporte supera el límite de 5 MB para el visor.")
+    text = path.read_text(encoding="utf-8-sig")
+    if not text.strip():
+        raise ValueError("El reporte está vacío.")
+    return text
+
+
+def sqlite_tables(path: Path) -> list[str]:
+    """Enumera tablas sin permitir escrituras en la base."""
+    with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as connection:
+        return [row[0] for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        )]
+
+
+def read_dataset(path: Path, table: str | None = None) -> tuple[list[str], list[list[Any]], bool]:
+    """Lee una muestra tabular de los datos exportados."""
+    suffix = path.suffix.lower()
+    if suffix in (".json", ".csv") and path.stat().st_size > _MAX_BYTES:
+        raise ValueError("El archivo supera el límite de 5 MB para el visor.")
+    if suffix == ".sqlite":
+        tables = sqlite_tables(path)
+        if table not in tables:
+            raise ValueError("Seleccione una tabla válida.")
+        safe_table = table.replace('"', '""')
+        with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as connection:
+            cursor = connection.execute(f'SELECT * FROM "{safe_table}" LIMIT ?', (_MAX_ROWS + 1,))
+            columns = [str(item[0]) for item in cursor.description]
+            rows = [list(row) for row in cursor.fetchall()]
+    elif suffix == ".xlsx":
+        from openpyxl import load_workbook
+        workbook = load_workbook(path, read_only=True, data_only=True)
+        try:
+            sheet = workbook.active
+            values = list(islice(sheet.iter_rows(values_only=True), _MAX_ROWS + 2))
+        finally:
+            workbook.close()
+        columns = [str(value) if value is not None else f"Columna {i}" for i, value in enumerate(values[0], 1)] if values else []
+        rows = [list(row) for row in values[1:]]
+    elif suffix == ".csv":
+        with path.open(encoding="utf-8-sig", newline="") as stream:
+            reader = csv.reader(stream)
+            columns = next(reader, [])
+            rows = [list(row) for row in islice(reader, _MAX_ROWS + 1)]
+    elif suffix == ".json":
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+        if not isinstance(data, list) or any(not isinstance(item, dict) for item in data):
+            raise ValueError("El dataset JSON debe ser una lista de registros.")
+        sample = data[:_MAX_ROWS + 1]
+        columns = list(dict.fromkeys(key for row in sample for key in row))
+        rows = [[row.get(key) for key in columns] for row in sample]
+    else:
+        raise ValueError("Formato de datos no compatible.")
+    return columns, rows[:_MAX_ROWS], len(rows) > _MAX_ROWS
+
+
+class DatasetViewer(tk.Toplevel):
+    """Consulta los datasets locales exportados en una tabla."""
+
+    def __init__(self, parent: tk.Misc, directory: Path) -> None:
+        super().__init__(parent)
+        self.directory = Path(directory)
+        self.files: list[Path] = []
+        self.title("Datos exportados")
+        self.geometry("1100x650")
+        container = ttk.Frame(self, padding=12)
+        container.pack(fill="both", expand=True)
+        toolbar = ttk.Frame(container)
+        toolbar.pack(fill="x")
+        ttk.Label(toolbar, text="Archivo:").pack(side="left")
+        self.file_choice = ttk.Combobox(toolbar, state="readonly")
+        self.file_choice.pack(side="left", fill="x", expand=True, padx=8)
+        self.file_choice.bind("<<ComboboxSelected>>", self._select_file)
+        ttk.Button(toolbar, text="Actualizar", command=self.refresh).pack(side="left")
+        ttk.Label(toolbar, text="Tabla SQLite:").pack(side="left", padx=(8, 0))
+        self.table_choice = ttk.Combobox(toolbar, state="disabled", width=25)
+        self.table_choice.pack(side="left", padx=8)
+        self.table_choice.bind("<<ComboboxSelected>>", self._show_data)
+        self.notice = tk.StringVar()
+        ttk.Label(container, textvariable=self.notice, wraplength=1000).pack(fill="x", pady=8)
+        frame = ttk.Frame(container)
+        frame.pack(fill="both", expand=True)
+        self.tree = ttk.Treeview(frame, show="headings")
+        vertical = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
+        horizontal = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        vertical.grid(row=0, column=1, sticky="ns")
+        horizontal.grid(row=1, column=0, sticky="ew")
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(0, weight=1)
+        self.refresh()
+
+    def refresh(self) -> None:
+        selected = self.file_choice.get()
+        try:
+            self.files = sorted((p for p in self.directory.iterdir() if p.is_file() and p.suffix.lower() in {".json", ".csv", ".xlsx", ".sqlite"}), key=lambda p: p.stat().st_mtime, reverse=True)
+        except OSError as exc:
+            self.files = []
+            self.notice.set(f"No se pudo leer la carpeta: {exc}")
+            return
+        names = [p.name for p in self.files]
+        self.file_choice["values"] = names
+        if names:
+            self.file_choice.current(names.index(selected) if selected in names else 0)
+            self._select_file()
+        else:
+            self.file_choice.set("")
+            self.tree.delete(*self.tree.get_children())
+            self.notice.set("Aún no hay datasets locales. Ejecute una extracción con JSON, CSV, Excel o SQLite.")
+
+    def _select_file(self, _event: Any = None) -> None:
+        self.table_choice.set("")
+        self.table_choice.configure(state="disabled", values=())
+        index = self.file_choice.current()
+        if index < 0 or index >= len(self.files):
+            return
+        path = self.files[index]
+        try:
+            if path.suffix.lower() == ".sqlite":
+                tables = sqlite_tables(path)
+                if not tables:
+                    raise ValueError("La base de datos no contiene tablas.")
+                self.table_choice.configure(state="readonly", values=tables)
+                self.table_choice.current(0)
+            self._show_data()
+        except (OSError, ValueError, sqlite3.Error) as exc:
+            self.tree.delete(*self.tree.get_children())
+            self.notice.set(f"No se pudo abrir el archivo: {exc}")
+
+    def _show_data(self, _event: Any = None) -> None:
+        index = self.file_choice.current()
+        if index < 0 or index >= len(self.files):
+            return
+        self.tree.delete(*self.tree.get_children())
+        try:
+            columns, rows, truncated = read_dataset(self.files[index], self.table_choice.get() or None)
+            ids = [f"column_{i}" for i in range(len(columns))]
+            self.tree["columns"] = ids
+            for column_id, heading in zip(ids, columns):
+                self.tree.heading(column_id, text=str(heading))
+                self.tree.column(column_id, width=160, minwidth=80)
+            for row in rows:
+                values = [json.dumps(v, ensure_ascii=False, default=str) if isinstance(v, (dict, list)) else "" if v is None else str(v) for v in row]
+                self.tree.insert("", "end", values=values)
+            self.notice.set(f"{len(rows)} registros mostrados." + (" Vista limitada a 3000 registros." if truncated else "") if columns else "El archivo no contiene datos tabulares.")
+        except Exception as exc:
+            self.notice.set(f"No se pudo abrir el archivo: {exc}")

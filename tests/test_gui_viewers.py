@@ -53,3 +53,56 @@ def test_gui_initializes_logging(tmp_path):
     assert setup.call_args.kwargs["level"] == "INFO"
     assert setup.call_args.kwargs["log_file"].parent == tmp_path
     root.mainloop.assert_called_once()
+
+
+def test_text_report_and_invalid_text(tmp_path):
+    from src.gui.viewers import read_report_text
+    report = tmp_path / "reporte.txt"
+    report.write_text("REPORTE\nEstado: correcto", encoding="utf-8")
+    assert "Estado: correcto" in read_report_text(report)
+    report.write_text("", encoding="utf-8")
+    with pytest.raises(ValueError, match="vacío"):
+        read_report_text(report)
+
+
+def test_dataset_json_csv_excel_and_sqlite(tmp_path):
+    import sqlite3
+    from openpyxl import Workbook
+    from src.gui.viewers import read_dataset, sqlite_tables
+
+    json_path = tmp_path / "raw.json"
+    json_path.write_text(json.dumps([{"nombre": "Libro", "precio": 10}]), encoding="utf-8")
+    assert read_dataset(json_path) == (["nombre", "precio"], [["Libro", 10]], False)
+    csv_path = tmp_path / "processed.csv"
+    csv_path.write_text("nombre,precio\nLibro,10\n", encoding="utf-8-sig")
+    assert read_dataset(csv_path) == (["nombre", "precio"], [["Libro", "10"]], False)
+    xlsx_path = tmp_path / "processed.xlsx"
+    workbook = Workbook()
+    workbook.active.append(["nombre", "precio"])
+    workbook.active.append(["Libro", 10])
+    workbook.save(xlsx_path)
+    workbook.close()
+    assert read_dataset(xlsx_path) == (["nombre", "precio"], [["Libro", 10]], False)
+    db_path = tmp_path / "datasets.sqlite"
+    with sqlite3.connect(db_path) as db:
+        db.execute('CREATE TABLE "datos originales" (nombre TEXT, precio INTEGER)')
+        db.execute('INSERT INTO "datos originales" VALUES (?, ?)', ("Libro", 10))
+        db.execute('CREATE TABLE procesados (nombre TEXT)')
+    assert sqlite_tables(db_path) == ["datos originales", "procesados"]
+    assert read_dataset(db_path, "datos originales") == (["nombre", "precio"], [["Libro", 10]], False)
+    with pytest.raises(ValueError, match="tabla válida"):
+        read_dataset(db_path, "inexistente")
+
+
+def test_invalid_dataset_and_bounded_rows(tmp_path):
+    from src.gui.viewers import read_dataset
+    invalid = tmp_path / "bad.json"
+    invalid.write_text('{"field": 1}', encoding="utf-8")
+    with pytest.raises(ValueError, match="lista de registros"):
+        read_dataset(invalid)
+    csv_path = tmp_path / "large.csv"
+    csv_path.write_text("n\n" + "x\n" * 3001, encoding="utf-8")
+    columns, rows, truncated = read_dataset(csv_path)
+    assert columns == ["n"]
+    assert len(rows) == 3000
+    assert truncated
