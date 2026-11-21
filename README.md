@@ -129,6 +129,11 @@ Para una URL que devuelve JSON directamente, `--strategy api` o la selección au
 8. **Reporte (M7):** JSON sanitizado + TXT legible con estrategia, esquema, páginas, calidad, linaje y archivos.
 9. **Trazabilidad:** cada registro procesado incluye `_lineage` con siete atributos obligatorios.
 
+Si ningún registro coincide con el esquema, la ejecución se informa como error y
+recomienda revisar los selectores. En modo automático, si Selenium no consigue
+obtener páginas, se puede intentar con requests y el reporte conserva el motivo;
+al seleccionar Selenium explícitamente no se cambia de motor.
+
 ## Linaje por registro
 
 Cada registro en `*_processed_*` conserva:

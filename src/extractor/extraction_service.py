@@ -186,6 +186,14 @@ class ExtractionService:
 
         raw_records = self._select_records(schema, batch, max_records)
         summary["raw_records"] = len(raw_records)
+        if not raw_records:
+            summary["status"] = "error"
+            summary["errors"].append(
+                "No se seleccionaron registros; revise los selectores y el contenido obtenido."
+            )
+            summary["finished_at"] = datetime.now().isoformat(timespec="seconds")
+            self._write_report(summary)
+            return summary
 
         # ---- M5: transformación, validación, deduplicación y linaje ----
         pipeline = self._build_pipeline(schema, rules, execution_id, target, strategy_used)
@@ -261,7 +269,10 @@ class ExtractionService:
             strategy=strategy,
             allow_private_network=target.allow_private_network,
         )
-        if not extractor.is_applicable(diagnosis) and not strategy:
+        automatic = not strategy or strategy.strip().lower() == "auto"
+        fallback_reason = ""
+        if not extractor.is_applicable(diagnosis) and automatic:
+            fallback_reason = f"Motor '{extractor.method}' no aplicable; se usó requests."
             logger.warning(
                 "Motor '%s' no aplicable; se usa requests como respaldo",
                 extractor.method,
@@ -272,18 +283,32 @@ class ExtractionService:
                 allow_private_network=target.allow_private_network,
             )
         batch = extractor.extract(target.url, extraction_config)
+        if fallback_reason:
+            batch.errors.insert(0, fallback_reason)
 
         if (
             not batch.pages
             and extractor.method == "selenium"
+            and automatic
             and not self._barrier_active(diagnosis)
+            and not any(
+                word in error.lower()
+                for error in batch.errors
+                for word in ("ssrf", "captcha", "bloquead", "403", "429", "401", "503")
+            )
         ):
             logger.warning("Selenium falló; se intenta respaldo con requests")
+            previous_errors = list(batch.errors)
             batch = ExtractorFactory.create(
                 "requests",
                 self.config,
                 allow_private_network=target.allow_private_network,
             ).extract(target.url, extraction_config)
+            batch.errors.insert(
+                0,
+                "Selenium no produjo páginas; se intentó con requests. "
+                + ("; ".join(previous_errors) if previous_errors else "Sin detalle adicional."),
+            )
         return batch
 
     @staticmethod

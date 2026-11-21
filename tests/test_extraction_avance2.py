@@ -13,12 +13,13 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.config.settings import AnalysisTarget, ProjectConfig
 from src.extractor.api_extractor import ApiExtractor
-from src.extractor.base import ExtractorFactory
+from src.extractor.base import ExtractionBatch, ExtractorFactory, PageSnapshot
 from src.extractor.extraction_service import ExtractionService
 from src.extractor.requests_extractor import RequestsExtractor
 from src.monitor.extraction_reporter import ExtractionReporter
@@ -197,6 +198,62 @@ def test_extractor_factory_selects_api_and_selenium() -> None:
     dynamic_diagnosis["technologies"]["render_type"] = "dynamic_probable"
     dynamic_diagnosis["viability"]["recommended_strategies"] = ["Selenium (dinámico)"]
     assert ExtractorFactory.select(dynamic_diagnosis) == "selenium"
+
+
+def test_service_reports_empty_selection(local_server: str, tmp_path: Path) -> None:
+    from src.config.settings import PathConfig
+
+    target = AnalysisTarget(url=local_server, allow_private_network=True)
+    service = ExtractionService(ProjectConfig(paths=PathConfig(base_dir=tmp_path)))
+    summary = service.run(
+        target, diagnosis=_diagnosis(local_server), strategy="requests", max_pages=1,
+        schema_config={"base_selector": ".inexistente", "fields": [
+            {"name": "nombre", "selector": ".nombre"}]},
+        formats=["json"],
+    )
+    assert summary["status"] == "error"
+    assert summary["raw_records"] == 0
+    assert "No se seleccionaron registros" in summary["errors"][-1]
+    assert summary["outputs"] == {}
+    assert "No se seleccionaron registros" in Path(summary["report_files"]["txt"]).read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("strategy,expects_fallback", [("selenium", False), ("auto", True), (None, True)])
+def test_selenium_fallback_is_automatic_only(strategy, expects_fallback, tmp_path: Path) -> None:
+    from src.config.settings import PathConfig
+
+    target = AnalysisTarget(url="https://example.com")
+    service = ExtractionService(ProjectConfig(paths=PathConfig(base_dir=tmp_path)))
+    selenium = MagicMock(method="selenium")
+    selenium.is_applicable.return_value = True
+    selenium.extract.return_value = ExtractionBatch(method="selenium", errors=["Chrome no disponible"])
+    requests = MagicMock(method="requests")
+    requests.extract.return_value = ExtractionBatch(
+        method="requests", pages=[PageSnapshot(url=target.url, html="<html></html>")]
+    )
+    with patch.object(ExtractorFactory, "create_for_diagnosis", return_value=selenium), \
+         patch.object(ExtractorFactory, "create", return_value=requests) as create:
+        batch = service._acquire(target, _diagnosis(target.url), {}, strategy)
+    assert create.called is expects_fallback
+    assert batch.method == ("requests" if expects_fallback else "selenium")
+    assert any("Chrome no disponible" in error for error in batch.errors)
+    if expects_fallback:
+        assert "requests" in batch.errors[0]
+
+
+def test_selenium_block_does_not_trigger_fallback(tmp_path: Path) -> None:
+    from src.config.settings import PathConfig
+
+    target = AnalysisTarget(url="https://example.com")
+    service = ExtractionService(ProjectConfig(paths=PathConfig(base_dir=tmp_path)))
+    selenium = MagicMock(method="selenium")
+    selenium.is_applicable.return_value = True
+    selenium.extract.return_value = ExtractionBatch(method="selenium", errors=["URL bloqueada por SSRF"])
+    with patch.object(ExtractorFactory, "create_for_diagnosis", return_value=selenium), \
+         patch.object(ExtractorFactory, "create") as create:
+        batch = service._acquire(target, _diagnosis(target.url), {}, "auto")
+    create.assert_not_called()
+    assert batch.errors == ["URL bloqueada por SSRF"]
 
 
 def test_requests_extractor_pagination_local(local_server: str) -> None:
