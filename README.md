@@ -185,3 +185,5 @@ extracciones; consulte [el manual](docs/manual_usuario.md) para más detalles.
 ## Bases de datos externas
 
 Para usar PostgreSQL o MongoDB instale `pip install "psycopg[binary]>=3.1" "pymongo>=4.6"`, configure respectivamente `EXTRACTION_POSTGRES_URI` o `EXTRACTION_MONGODB_URI` y, opcionalmente, `EXTRACTION_MONGODB_DATABASE` en `.env`. Las credenciales no se incluyen en los reportes. Seleccione `postgresql` o `mongodb` con `--format` o en la interfaz. PostgreSQL crea tablas con una columna JSONB `record`; MongoDB crea colecciones con documentos que contienen `record`. Los conjuntos originales y procesados se guardan por separado. Se requiere acceso a un servidor configurado por el usuario.
+
+Desde `python gui.py`, los botones **Ver reportes** y **Ver logs** permiten explorar los archivos generados en vistas organizadas por secciones o por eventos. Consulte el manual para más detalles.

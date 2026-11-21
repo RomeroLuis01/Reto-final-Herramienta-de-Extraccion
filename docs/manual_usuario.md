@@ -156,3 +156,7 @@ controles de barreras y `robots.txt` de la aplicación de consola.
 ### Almacenamiento en PostgreSQL y MongoDB
 
 Instale las dependencias opcionales con `pip install "psycopg[binary]>=3.1" "pymongo>=4.6"`. Configure en `.env` la URI `EXTRACTION_POSTGRES_URI` o `EXTRACTION_MONGODB_URI`; para MongoDB puede configurar también `EXTRACTION_MONGODB_DATABASE`. En la interfaz o con `--format postgresql` o `--format mongodb`, los datos crudos y procesados se guardan en tablas o colecciones separadas. Las URIs deben mantenerse privadas.
+
+### Consultar reportes y logs desde la interfaz
+
+En la ventana principal, use **Ver reportes** para seleccionar un diagnóstico o una extracción y explorar sus secciones y campos. Use **Ver logs** para revisar los eventos por fecha, nivel y módulo; seleccione un evento para ver su mensaje completo y las trazas asociadas. El botón **Actualizar** incorpora los archivos generados después de abrir el visor. Los reportes se leen de la carpeta de reportes configurada y los logs de la carpeta de logs configurada. Al iniciar la interfaz se crea un log de sesión. Para mantener la ventana ágil, el visor limita el tamaño de lectura y el número de filas que muestra; el archivo original permanece completo.

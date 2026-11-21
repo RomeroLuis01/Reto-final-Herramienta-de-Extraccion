@@ -5,12 +5,15 @@ import json
 import queue
 import threading
 import tkinter as tk
+from datetime import datetime
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import Any
 
 from src.config.settings import get_config, register_target
 from src.extractor.extraction_service import ExtractionService
 from src.inspector.web_inspector import WebInspector
+from src.gui.viewers import FileViewer
+from src.monitor.logger import setup_logging
 from src.monitor.reporter import DiagnosticReporter
 from src.selector.builder import load_schema_file
 from src.utils.profiles import ProfileManager
@@ -72,6 +75,8 @@ class ExtractionApp:
         self.diagnose_button.pack(side="left", padx=(0, 8))
         self.extract_button = ttk.Button(actions, text="Diagnosticar y extraer", command=lambda: self._start(True))
         self.extract_button.pack(side="left")
+        ttk.Button(actions, text="Ver reportes", command=lambda: FileViewer(self.root, self.config.paths.reports_dir, "reports")).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text="Ver logs", command=lambda: FileViewer(self.root, self.config.paths.logs_dir, "logs")).pack(side="left", padx=(8, 0))
         ttk.Label(actions, textvariable=self.status).pack(side="left", padx=12)
         self.output = scrolledtext.ScrolledText(frame, wrap="word", state="disabled")
         self.output.grid(row=8, column=0, columnspan=4, sticky="nsew")
@@ -152,6 +157,9 @@ class ExtractionApp:
 
 
 def main() -> None:
+    config = get_config()
+    log_path = config.paths.logs_dir / f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    setup_logging(level=config.log_level, log_file=log_path)
     root = tk.Tk()
     ExtractionApp(root)
     root.mainloop()
