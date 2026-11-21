@@ -138,10 +138,54 @@ class SchemaBuilder:
             if schema.fields and score > best_score:
                 best, best_score = schema, score
 
+        # Los componentes web usan etiquetas propias, que no aparecen entre
+        # los selectores HTML habituales. Solo considerar hermanos repetidos
+        # que contengan enlaces con texto, no navegación o componentes vacíos.
+        custom_tags = sorted({
+            node.name for node in soup.find_all(True)
+            if re.fullmatch(r"[a-z][a-z0-9]*-[a-z0-9-]+", node.name or "")
+        })
+        for tag in custom_tags:
+            nodes = soup.find_all(tag)
+            if len(nodes) < 2 or any(
+                node.find_parent(["nav", "header", "footer", "aside"])
+                for node in nodes
+            ):
+                continue
+            groups: dict[int, list[Any]] = {}
+            for node in nodes:
+                groups.setdefault(id(node.parent), []).append(node)
+            repeated = max(groups.values(), key=len)
+            if len(repeated) < 2 or len(repeated) != len(nodes):
+                continue
+
+            def consistent_link(node: Any) -> bool:
+                links = node.find_all("a", href=True)
+                text_link = next(
+                    (link for link in links if link.get_text(" ", strip=True)), None
+                )
+                return bool(text_link and links[0].get("href") == text_link.get("href"))
+
+            if not all(consistent_link(node) for node in repeated[:3]):
+                continue
+            schema = ExtractionSchema(
+                name=f"automatico_{tag}",
+                description="Esquema inferido de componentes web repetidos",
+                base_selector=tag,
+                fields=[
+                    FieldSelector("titulo", "a[href]", attribute="text"),
+                    FieldSelector("enlace", "a[href]", attribute="href"),
+                ],
+            )
+            score = len(schema.fields) * 10 + min(len(nodes), 20)
+            if score > best_score:
+                best, best_score = schema, score
+
         if best is None:
             raise SchemaBuildError(
-                "No fue posible inferir campos automáticamente. "
-                "Cree un archivo JSON con 'base_selector' y 'fields' y páselo con --schema."
+                "No fue posible inferir campos del contenido recibido; no se guardaron datos. "
+                "Compruebe que la página muestre información y seleccione un esquema JSON "
+                "con 'base_selector' y 'fields' en la interfaz o mediante --schema."
             )
         logger.info(
             "Esquema automático '%s': base=%s, campos=%d",
