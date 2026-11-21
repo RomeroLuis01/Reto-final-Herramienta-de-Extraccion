@@ -220,6 +220,8 @@ Las imágenes inicializan usuarios y contraseñas solo cuando el volumen está v
 
 Desde `python gui.py`, los botones **Ver reportes** y **Ver logs** permiten explorar los archivos generados en vistas organizadas por secciones o por eventos. Consulte el manual para más detalles.
 
+En **Ver datos**, el botón **Renombrar columnas** permite asignar nombres visibles cuando la fuente no proporciona encabezados. Los nombres se guardan localmente para el conjunto y tabla seleccionados; no modifican los datos ni sus campos originales. Use **Restablecer originales** para volver a los nombres guardados en el dataset.
+
 El botón **Ver datos** permite seleccionar la fuente **Archivos locales**, **PostgreSQL** o **MongoDB**. Para las bases de datos utiliza las conexiones configuradas en `.env` y muestra los datasets originales y procesados disponibles, con un máximo de 3000 registros por vista. Las consultas son de solo lectura; si el servidor no está disponible, inicie los contenedores y pulse **Actualizar**.
 
 Los nombres largos se acortan y terminan en un identificador; el visor los incluye como candidatos, pues ese patrón por sí solo no garantiza que pertenezcan al proyecto.

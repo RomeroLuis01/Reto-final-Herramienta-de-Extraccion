@@ -77,7 +77,7 @@ class ExtractionApp:
         self.extract_button.pack(side="left")
         ttk.Button(actions, text="Ver reportes", command=lambda: FileViewer(self.root, self.config.paths.reports_dir, "reports")).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Ver logs", command=lambda: FileViewer(self.root, self.config.paths.logs_dir, "logs")).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="Ver datos", command=lambda: DatasetViewer(self.root, self.config.paths.data_dir)).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text="Ver datos", command=lambda: DatasetViewer(self.root, self.config.paths.data_dir, self.config.paths.profiles_dir)).pack(side="left", padx=(8, 0))
         ttk.Label(frame, textvariable=self.status).grid(row=9, column=0, columnspan=4, sticky="w")
         self.output = scrolledtext.ScrolledText(frame, wrap="word", state="disabled")
         self.output.grid(row=8, column=0, columnspan=4, sticky="nsew")

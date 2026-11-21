@@ -10,11 +10,12 @@ from itertools import islice
 import re
 import tkinter as tk
 from pathlib import Path
-from tkinter import font, scrolledtext, ttk
+from tkinter import font, messagebox, scrolledtext, ttk
 from typing import Any
 
 from src.utils.security import sanitize_for_persistence
 from src.gui.database_viewer import list_datasets, read_database_dataset
+from src.gui.column_labels import ColumnLabels
 
 _MAX_BYTES = 5 * 1024 * 1024
 _MAX_ROWS = 3000
@@ -299,9 +300,15 @@ def dataset_column_widths(columns: list[str], rows: list[list[Any]], measure: An
 class DatasetViewer(tk.Toplevel):
     """Consulta los datasets locales exportados en una tabla."""
 
-    def __init__(self, parent: tk.Misc, directory: Path) -> None:
+    def __init__(self, parent: tk.Misc, directory: Path, profiles_dir: Path | None = None) -> None:
         super().__init__(parent)
         self.directory = Path(directory)
+        if profiles_dir is None:
+            from src.config.settings import get_config
+            profiles_dir = get_config().paths.profiles_dir
+        self.column_labels = ColumnLabels(Path(profiles_dir))
+        self._columns: list[str] = []
+        self._dataset_key = ""
         self.files: list[Path] = []
         self._database_results: queue.Queue = queue.Queue()
         self._request_id = 0
@@ -325,6 +332,8 @@ class DatasetViewer(tk.Toplevel):
         self.table_choice = ttk.Combobox(toolbar, state="disabled", width=25)
         self.table_choice.pack(side="left", padx=8)
         self.table_choice.bind("<<ComboboxSelected>>", self._show_data)
+        self.rename_button = ttk.Button(container, text="Renombrar columnas", command=self._rename_columns, state="disabled")
+        self.rename_button.pack(anchor="w", pady=(8, 0))
         self.notice = tk.StringVar()
         ttk.Label(container, textvariable=self.notice, wraplength=1000).pack(fill="x", pady=8)
         frame = ttk.Frame(container)
@@ -369,6 +378,7 @@ class DatasetViewer(tk.Toplevel):
 
     def refresh(self) -> None:
         self._request_id += 1
+        self._clear_columns()
         self.tree.delete(*self.tree.get_children())
         self._set_cell_detail("")
         self.table_choice.set("")
@@ -396,6 +406,7 @@ class DatasetViewer(tk.Toplevel):
             self.notice.set("Aún no hay datasets locales. Ejecute una extracción con JSON, CSV, Excel o SQLite.")
 
     def _select_file(self, _event: Any = None) -> None:
+        self._clear_columns()
         if self.source.get() != "Archivos locales":
             name = self.file_choice.get()
             if name:
@@ -427,6 +438,7 @@ class DatasetViewer(tk.Toplevel):
         if index < 0 or index >= len(self.files):
             return
         self.tree.delete(*self.tree.get_children())
+        self._clear_columns()
         self._set_cell_detail("")
         try:
             columns, rows, truncated = read_dataset(self.files[index], self.table_choice.get() or None)
@@ -436,16 +448,93 @@ class DatasetViewer(tk.Toplevel):
 
     def _display_data(self, columns: list[str], rows: list[list[Any]], truncated: bool) -> None:
         self.tree.delete(*self.tree.get_children())
+        self._columns = [str(column) for column in columns]
+        source = self.source.get()
+        dataset = self.file_choice.get()
+        if source == "Archivos locales":
+            index = self.file_choice.current()
+            dataset = str(self.files[index].resolve())
+        table = self.table_choice.get() if source == "Archivos locales" and dataset.lower().endswith(".sqlite") else ""
+        scope = self.column_labels.database_scope(source)
+        self._dataset_key = self.column_labels.key(source, dataset, table, scope)
+        warning = ""
+        try:
+            headings = self.column_labels.get(self._dataset_key, self._columns)
+        except (OSError, ValueError) as exc:
+            headings = self._columns
+            warning = f" No se pudieron leer los nombres guardados: {exc}"
+        self.rename_button.configure(state="normal" if columns else "disabled")
         ids = [f"column_{i}" for i in range(len(columns))]
         self.tree["columns"] = ids
-        widths = dataset_column_widths(columns, rows, font.nametofont("TkDefaultFont").measure)
-        for column_id, heading, width in zip(ids, columns, widths):
+        widths = dataset_column_widths(headings, rows, font.nametofont("TkDefaultFont").measure)
+        for column_id, heading, width in zip(ids, headings, widths):
             self.tree.heading(column_id, text=str(heading))
             self.tree.column(column_id, width=width, minwidth=80, stretch=False)
         for row in rows:
             values = [json.dumps(v, ensure_ascii=False, default=str) if isinstance(v, (dict, list)) else "" if v is None else str(v) for v in row]
             self.tree.insert("", "end", values=values)
-        self.notice.set(f"{len(rows)} registros mostrados." + (" Vista limitada a 3000 registros." if truncated else "") if columns else "El dataset no contiene datos tabulares.")
+        self.notice.set((f"{len(rows)} registros mostrados." + (" Vista limitada a 3000 registros." if truncated else "") if columns else "El dataset no contiene datos tabulares.") + warning)
+
+    def _clear_columns(self) -> None:
+        self._columns = []
+        self._dataset_key = ""
+        self.rename_button.configure(state="disabled")
+
+    def _rename_columns(self) -> None:
+        if not self._columns or not self._dataset_key:
+            return
+        dataset_key = self._dataset_key
+        original_columns = list(self._columns)
+        try:
+            current = self.column_labels.get(dataset_key, original_columns)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Nombres de columnas", str(exc), parent=self)
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("Renombrar columnas")
+        dialog.geometry("640x500")
+        dialog.transient(self)
+        dialog.grab_set()
+        body = ttk.Frame(dialog, padding=12)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text="Los nombres solo cambian en el visor; los datos originales no se modifican.").pack(anchor="w")
+        area = ttk.Frame(body)
+        area.pack(fill="both", expand=True, pady=8)
+        canvas = tk.Canvas(area, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(area, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        fields = ttk.Frame(canvas)
+        window = canvas.create_window((0, 0), window=fields, anchor="nw")
+        fields.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
+        fields.columnconfigure(1, weight=1)
+        variables = []
+        for index, (original, shown) in enumerate(zip(original_columns, current)):
+            ttk.Label(fields, text=original).grid(row=index, column=0, sticky="w", padx=(0, 12), pady=3)
+            variable = tk.StringVar(value=shown)
+            variables.append(variable)
+            ttk.Entry(fields, textvariable=variable).grid(row=index, column=1, sticky="ew", pady=3)
+
+        def save(labels: list[str]) -> None:
+            try:
+                self.column_labels.save(dataset_key, original_columns, labels)
+            except (OSError, ValueError) as exc:
+                messagebox.showerror("Nombres de columnas", str(exc), parent=dialog)
+                return
+            if self._dataset_key == dataset_key:
+                for index, heading in enumerate(labels):
+                    column_id = f"column_{index}"
+                    self.tree.heading(column_id, text=heading.strip())
+                    self.tree.column(column_id, width=max(self.tree.column(column_id, "width"), min(420, font.nametofont("TkDefaultFont").measure(heading.strip()[:100]) + 24)))
+            dialog.destroy()
+
+        buttons = ttk.Frame(body)
+        buttons.pack(fill="x")
+        ttk.Button(buttons, text="Guardar", command=lambda: save([value.get() for value in variables])).pack(side="left")
+        ttk.Button(buttons, text="Restablecer originales", command=lambda: save(original_columns)).pack(side="left", padx=8)
+        ttk.Button(buttons, text="Cancelar", command=dialog.destroy).pack(side="right")
 
     def _run_database(self, action: str, source: str, name: str = "") -> None:
         request_id = self._request_id
