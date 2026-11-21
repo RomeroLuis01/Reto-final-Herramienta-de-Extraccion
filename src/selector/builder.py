@@ -116,7 +116,10 @@ class SchemaBuilder:
             )
         soup = make_soup(html)
 
-        for table_selector in self._candidate_table_selectors():
+        table_selectors = self._candidate_table_selectors()
+        if not table_selectors:
+            table_selectors = ["table"]
+        for table_selector in table_selectors:
             try:
                 tables = soup.select(table_selector)
             except Exception:
@@ -197,29 +200,50 @@ class SchemaBuilder:
 
     @staticmethod
     def _schema_from_table(table: Any, table_selector: str) -> ExtractionSchema | None:
-        rows = table.find_all("tr")
-        if not rows:
-            return None
-        header_cells = table.find_all("th")
-        if header_cells:
-            headers = [h.get_text(" ", strip=True) for h in header_cells]
-        else:
-            data_cells = rows[0].find_all(["td", "th"])
-            headers = [f"Columna {i + 1}" for i in range(len(data_cells))]
-        headers = [h or f"Columna {i + 1}" for i, h in enumerate(headers)]
-        if not headers:
-            return None
-
-        fields = [
-            FieldSelector(
-                name=SchemaBuilder._safe_name(header, index),
-                selector=f"td:nth-of-type({index + 1})",
-                selector_type="css",
-                attribute="text",
-            )
-            for index, header in enumerate(headers)
+        rows = [row for row in table.find_all("tr") if row.find_parent("table") is table]
+        data_rows = [
+            row for row in rows
+            if row.find("td", recursive=False) and not row.find_parent("thead")
         ]
-        base = f"{table_selector} tbody tr" if table_selector != "table" else "table tbody tr"
+        if not data_rows:
+            return None
+        thead = table.find("thead", recursive=False)
+        header_row = thead.find("tr") if thead else None
+        if header_row is None and rows:
+            cells = rows[0].find_all(["th", "td"], recursive=False)
+            if cells and all(cell.name == "th" for cell in cells):
+                header_row = rows[0]
+        header_cells = (
+            header_row.find_all(["th", "td"], recursive=False) if header_row else []
+        )
+        headers = [cell.get_text(" ", strip=True) for cell in header_cells]
+        count = max(
+            len(row.find_all(["th", "td"], recursive=False)) for row in data_rows
+        )
+        fields = []
+        used: set[str] = set()
+        for index in range(count):
+            header = (
+                headers[index]
+                if index < len(headers) and headers[index]
+                else f"Columna {index + 1}"
+            )
+            base_name = SchemaBuilder._safe_name(header, index)
+            name = base_name
+            suffix = 2
+            while name in used:
+                name = f"{base_name}_{suffix}"
+                suffix += 1
+            used.add(name)
+            fields.append(
+                FieldSelector(
+                    name=name,
+                    selector=f":is(td, th):nth-child({index + 1})",
+                    selector_type="css",
+                    attribute="text",
+                )
+            )
+        base = f"{table_selector} > tbody > tr:has(> td), {table_selector} > tr:has(> td)"
         return ExtractionSchema(
             name="tabla_detectada",
             description="Esquema inferido de tabla HTML",
