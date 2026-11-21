@@ -232,6 +232,7 @@ def test_api_extractor_local_json(local_server: str) -> None:
         {
             "diagnosis": _diagnosis(local_server),
             "endpoints": [f"{local_server}/api/items"],
+            "api_page_param": "page",
             "max_pages": 2,
             "delay_s": 0,
         },
@@ -240,6 +241,45 @@ def test_api_extractor_local_json(local_server: str) -> None:
     assert len(batch.pages) == 2
     assert batch.pages[0].data == [{"id": 1, "name": "Item 1"}]
     assert batch.pages[1].data == [{"id": 2, "name": "Item 2"}]
+
+
+@pytest.mark.parametrize("strategy", ["auto", "api"])
+@pytest.mark.parametrize("observed", [[], ["http://other.example/api"]])
+def test_service_extracts_direct_json_without_observed_endpoints(
+    local_server: str, tmp_path: Path, strategy: str, observed: list[str]
+) -> None:
+    from src.config.settings import PathConfig
+
+    url = f"{local_server}/api/items"
+    target = AnalysisTarget(url=url, allow_private_network=True)
+    diagnosis = _diagnosis(url)
+    diagnosis["acquisition_mechanisms"]["content_format"] = "json"
+    diagnosis["viability"]["recommended_strategies"] = [
+        "Consumo directo de formato estructurado (JSON)"
+    ]
+    diagnosis["network"]["endpoints_observed"] = observed
+    config = ProjectConfig(paths=PathConfig(base_dir=tmp_path))
+    summary = ExtractionService(config).run(
+        target, diagnosis=diagnosis, strategy=strategy, max_pages=3,
+        delay_s=0, formats=["json"],
+    )
+    assert summary["status"] == "ok", summary["errors"]
+    assert summary["extraction_config"]["strategy"] == "api"
+    assert summary["raw_records"] == 1
+    assert len(summary["pages"]) == 1
+    records = json.loads(Path(summary["outputs"]["json"]["raw"]).read_text(encoding="utf-8"))
+    assert records[0]["name"] == "Item 1"
+
+
+def test_api_stops_when_page_parameter_is_ignored(local_server: str) -> None:
+    extractor = ApiExtractor(allow_private_network=True)
+    batch = extractor.extract(
+        f"{local_server}/api/items?page=1",
+        {"diagnosis": _diagnosis(local_server), "api_page_param": "ignored",
+         "max_pages": 4, "delay_s": 0},
+    )
+    assert batch.errors == []
+    assert len(batch.pages) == 1
 
 
 def test_selenium_extractor_handles_infinite_scroll(monkeypatch: pytest.MonkeyPatch) -> None:

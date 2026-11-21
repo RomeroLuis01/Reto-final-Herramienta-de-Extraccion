@@ -131,7 +131,7 @@ class ExtractionParameters:
     max_records: int = int(os.getenv("EXTRACTION_MAX_RECORDS", "50"))
     delay_s: float = float(os.getenv("EXTRACTION_DELAY_S", "1.0"))
     default_format: str = os.getenv("EXTRACTION_DEFAULT_FORMAT", "json").lower()
-    page_param: str = os.getenv("EXTRACTION_PAGE_PARAM", "page")
+    page_param: str = os.getenv("EXTRACTION_PAGE_PARAM", "")
     table_name: str = os.getenv("EXTRACTION_SQLITE_TABLE", "dataset")
 
 

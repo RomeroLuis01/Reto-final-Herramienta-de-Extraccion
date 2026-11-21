@@ -22,7 +22,7 @@ Copie `.env.example` a `.env`. Además de los parámetros del Avance 1, puede aj
 | `EXTRACTION_MAX_RECORDS` | `50` | Registros máximos por ejecución. |
 | `EXTRACTION_DELAY_S` | `1.0` | Pausa entre peticiones/páginas. |
 | `EXTRACTION_DEFAULT_FORMAT` | `json` | Formato por defecto de salida. |
-| `EXTRACTION_PAGE_PARAM` | `page` | Parámetro de paginación para APIs. |
+| `EXTRACTION_PAGE_PARAM` | vacío | Parámetro de paginación para APIs; configúrelo solo si la API lo admite. |
 | `DATA_DIR` | `data` | Carpeta de datasets `raw`/`processed`. |
 
 Nunca versione `.env`.

@@ -136,13 +136,9 @@ class ExtractionService:
             "infinite_scroll": rules.get(
                 "infinite_scroll", pagination.get("infinite_scroll", False)
             ),
-            "endpoints": (profile or {}).get("authorized_endpoints")
-            or (effective_diagnosis.get("network") or {}).get("endpoints_observed")
-            or [],
+            "endpoints": rules.get("api_endpoints", []),
             "api_params": rules.get("api_params", {}),
-            "api_page_param": rules.get(
-                "api_page_param", self.config.extraction.page_param
-            ),
+            "api_page_param": rules.get("api_page_param", self.config.extraction.page_param),
         }
         summary["extraction_config"].update(
             {

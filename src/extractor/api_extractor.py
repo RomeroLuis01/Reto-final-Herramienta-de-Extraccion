@@ -17,7 +17,7 @@ _DATA_KEYS = ("data", "results", "items", "records", "products", "posts", "featu
 
 
 class ApiExtractor(BaseExtractor):
-    """Consume endpoints JSON detectados y autorizados en el diagnóstico."""
+    """Consume la URL objetivo o endpoints JSON configurados expresamente."""
 
     method = "api"
 
@@ -42,7 +42,7 @@ class ApiExtractor(BaseExtractor):
                 errors=["No hay endpoints API autorizados disponibles para extraer."],
             )
 
-        page_param = str(config.get("api_page_param") or "page")
+        page_param = str(config.get("api_page_param") or "")
         page_start = int(config.get("api_page_start", 1) or 1)
         base_params = dict(config.get("api_params") or {})
         batch = ExtractionBatch(method=self.method)
@@ -59,6 +59,7 @@ class ApiExtractor(BaseExtractor):
         try:
             for endpoint in endpoints:
                 page = page_start
+                previous_body = None
                 while page_number < max_pages:
                     params = dict(base_params)
                     if page_param:
@@ -66,6 +67,9 @@ class ApiExtractor(BaseExtractor):
                     response, body, final_url, redirects = self._client.get(
                         endpoint, params=params
                     )
+                    if body == previous_body:
+                        break
+                    previous_body = body
                     data = self._json_data(body)
                     if data is None:
                         batch.errors.append(
@@ -127,8 +131,10 @@ class ApiExtractor(BaseExtractor):
         if self._barrier_message({"diagnosis": diagnosis}):
             return False
         network = diagnosis.get("network") or {}
-        has_api = bool(network.get("rest_api_detected")) or bool(
-            network.get("endpoints_observed")
+        has_api = (
+            (diagnosis.get("acquisition_mechanisms") or {}).get("content_format") == "json"
+            or bool(network.get("rest_api_detected"))
+            or bool(network.get("endpoints_observed"))
         )
         strategies = " ".join(
             str(s).lower()
@@ -148,15 +154,8 @@ class ApiExtractor(BaseExtractor):
             endpoints.append(explicit)
         elif isinstance(explicit, list):
             endpoints.extend(str(e) for e in explicit if e)
+        # Los endpoints observados no demuestran autorización; usar el objetivo.
         if not endpoints:
-            diagnosis = config.get("diagnosis") or {}
-            endpoints.extend(
-                str(e)
-                for e in (diagnosis.get("network") or {}).get("endpoints_observed", [])
-                if e
-            )
-        # La URL objetivo puede ser directamente un endpoint JSON.
-        if not endpoints and config.get("content_format") in ("json", "api"):
             endpoints.append(url)
         return list(dict.fromkeys(endpoints))
 

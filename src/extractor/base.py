@@ -188,7 +188,6 @@ class ExtractorFactory:
         Prioridad: API autorizada > Selenium (dynámico/scroll) > Requests.
         """
         viability = diagnosis.get("viability") or {}
-        network = diagnosis.get("network") or {}
         pagination = diagnosis.get("pagination") or {}
         acquisition = diagnosis.get("acquisition_mechanisms") or {}
         strategies = [
@@ -196,13 +195,11 @@ class ExtractorFactory:
         ]
 
         api_strategy = any(
-            "api rest" in s or "graphql" in s or "json/xml/csv" in s
+            "api rest" in s or "graphql" in s or "json" in s
             for s in strategies
         )
         content_format = str(acquisition.get("content_format") or "").lower()
-        if api_strategy and (
-            network.get("rest_api_detected") or network.get("endpoints_observed")
-        ) and content_format in ("json", "xml", "csv"):
+        if api_strategy and content_format == "json":
             return "api"
 
         selenium_strategy = any(

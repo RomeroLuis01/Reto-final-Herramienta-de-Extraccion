@@ -115,6 +115,8 @@ python main.py --list-profiles
 
 Tipos de selector soportados: `css`, `xpath`, `regex`, `attribute` y `json_path`. En APIs se usan rutas tipo `data.items.title` o `results[0].name`.
 
+Para una URL que devuelve JSON directamente, `--strategy api` o la selección automática usan esa URL. Los endpoints observados durante el diagnóstico no se consideran autorizados automáticamente. Configure `EXTRACTION_PAGE_PARAM` (por ejemplo, `page`) solo cuando la API admita paginación; si está vacío, se obtiene una respuesta por endpoint. En uso programático, `extraction_rules` permite indicar `api_endpoints` expresamente autorizados y `api_page_param`. La paginación se detiene si el servidor repite la respuesta anterior.
+
 ## Flujo implementado (Avance 2)
 
 1. **Diagnóstico reutilizable (M1/M2):** se ejecuta o se recupera del perfil.
