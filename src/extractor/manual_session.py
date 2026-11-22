@@ -74,7 +74,9 @@ def _verified_status(driver: Any, url: str, evidence: dict[tuple[str, str, str],
 
 def acquire_manual(target: AnalysisTarget, config: ProjectConfig,
                    wait_for_user: Callable[[], bool],
-                   retry_for_user: Callable[[str, float], bool] | None = None) -> ExtractionBatch:
+                   retry_for_user: Callable[[str, float], bool] | None = None,
+                   next_for_user: Callable[[int, float], bool] | None = None,
+                   max_pages: int = 1) -> ExtractionBatch:
     """El usuario interactúa; solo se captura la página comprobada en esa sesión."""
     batch = ExtractionBatch(method="selenium_manual")
     safe, _ = validate_url_security(target.url, resolve_dns=not target.allow_private_network,
@@ -98,6 +100,32 @@ def acquire_manual(target: AnalysisTarget, config: ProjectConfig,
                     return batch
                 error, retryable = _capture_verified(driver, target, batch, evidence)
                 if not error:
+                    if len(batch.pages) >= max_pages:
+                        batch.metadata["stopped_reason"] = "límite de capturas alcanzado"
+                        return batch
+                    if next_for_user is None:
+                        batch.metadata["stopped_reason"] = "sin solicitud de captura adicional"
+                        return batch
+                    while len(batch.pages) < max_pages:
+                        previous_key = _document_key(driver)
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0 or not next_for_user(len(batch.pages), remaining):
+                            batch.metadata["stopped_reason"] = "usuario finalizó o tiempo agotado"
+                            return batch
+                        if time.monotonic() >= deadline:
+                            batch.metadata["stopped_reason"] = "tiempo agotado"
+                            return batch
+                        expected_url = driver.current_url
+                        error = _validate_additional_page(driver, target, config, previous_key)
+                        if not error:
+                            evidence.clear()
+                            error, _ = _capture_verified(driver, target, batch, evidence,
+                                                         additional=True, expected_url=expected_url)
+                        if error:
+                            batch.errors.append(error)
+                            batch.metadata["stopped_reason"] = "no se pudo verificar la página adicional"
+                            return batch
+                    batch.metadata["stopped_reason"] = "límite de capturas alcanzado"
                     return batch
                 remaining = deadline - time.monotonic()
                 if retry_for_user is None or remaining <= 0 or not retryable:
@@ -114,16 +142,46 @@ def acquire_manual(target: AnalysisTarget, config: ProjectConfig,
     return batch
 
 
+def _document_key(driver: Any) -> tuple[str, str, str]:
+    frame = driver.execute_cdp_cmd("Page.getFrameTree", {})["frameTree"]["frame"]
+    if not frame.get("loaderId"):
+        raise ValueError("Documento sin identificador de carga")
+    return _evidence_key(frame["id"], frame["loaderId"], driver.current_url)
+
+
+def _validate_additional_page(driver: Any, target: AnalysisTarget, config: ProjectConfig,
+                              previous_key: tuple[str, str, str]) -> str:
+    from src.inspector.http_inspector import HttpInspector
+
+    current = driver.current_url
+    safe, _ = validate_url_security(current, resolve_dns=not target.allow_private_network,
+                                    allow_private_network=target.allow_private_network)
+    if not safe or origin(current) != origin(target.url):
+        return "La página adicional no pertenece al origen autorizado o fue bloqueada por anti-SSRF."
+    if _document_key(driver) == previous_key:
+        return "No se observó una navegación a un documento nuevo."
+    inspector = HttpInspector(config.request, allow_private_network=target.allow_private_network)
+    try:
+        allowed = inspector._check_robots_txt(current).get("crawl_allowed")
+    finally:
+        inspector.close()
+    if allowed is not True:
+        return "robots.txt no permite la página adicional o no pudo comprobarse."
+    return ""
+
+
 def _capture_verified(driver: Any, target: AnalysisTarget, batch: ExtractionBatch,
-                      evidence: dict[tuple[str, str, str], int] | None = None) -> tuple[str, bool]:
+                      evidence: dict[tuple[str, str, str], int] | None = None,
+                      *, additional: bool = False, expected_url: str = "") -> tuple[str, bool]:
     """Valida solo la navegación actual; no conserva registros de red ni tokens."""
     try:
         current = driver.current_url
         safe, _ = validate_url_security(current, resolve_dns=not target.allow_private_network,
                                         allow_private_network=target.allow_private_network)
         if (not safe or origin(current) != origin(target.url)
-                or urlsplit(current).path.rstrip("/") != urlsplit(target.url).path.rstrip("/")
-                or urlsplit(current).query != urlsplit(target.url).query):
+                or (additional and current != expected_url)
+                or (not additional and (urlsplit(current).path.rstrip("/") != urlsplit(target.url).path.rstrip("/")
+                or urlsplit(current).query != urlsplit(target.url).query))):
             return "La página final no coincide con la URL autorizada o fue bloqueada por anti-SSRF.", False
         status = _verified_status(driver, current, evidence)
         if status is None:
@@ -156,8 +214,9 @@ def _capture_verified(driver: Any, target: AnalysisTarget, batch: ExtractionBatc
         current_key = _evidence_key(frame_info["id"], loader, driver.current_url)
         if evidence is not None and current_key not in evidence:
             return "La página cambió durante la comprobación; vuelva a comprobar la respuesta actual.", True
-        batch.pages.append(PageSnapshot(url=sanitize_url(target.url), final_url=sanitize_url(current),
-                                         html=html, status_code=status, method=batch.method))
+        batch.pages.append(PageSnapshot(url=sanitize_url(current), final_url=sanitize_url(current),
+                                         html=html, status_code=status, method=batch.method,
+                                         page_number=len(batch.pages) + 1))
         return "", False
     except Exception:
         return "No se pudo verificar la sesión manual. La extracción permanece detenida.", False

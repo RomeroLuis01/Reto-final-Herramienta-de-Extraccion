@@ -563,3 +563,127 @@ def test_evidence_does_not_keep_sensitive_url_parameters():
     assert _verified_status(dom._driver, target, evidence) == 200
     assert "secret_value" not in repr(evidence)
     assert len(evidence) == 1
+
+
+def test_manual_additional_page_requires_new_document_and_robots():
+    dom = prepare_dom()
+    driver = dom._driver
+    target = register_target("https://example.com/data")
+    def navigate(_count, _remaining):
+        driver.current_url = "https://example.com/next"
+        driver.execute_cdp_cmd.return_value = {"frameTree": {"frame": {"id": "main", "loaderId": "new"}}}
+        driver.get_log.return_value = [performance(url=driver.current_url, loader="new")]
+        return True
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.HtmlAnalyzer") as analyzer, \
+         patch("src.inspector.http_inspector.HttpInspector") as inspector:
+        cls.return_value.__enter__.return_value = dom
+        analyzer.return_value.analyze.return_value = {}
+        inspector.return_value._check_robots_txt.return_value = {"crawl_allowed": True}
+        batch = acquire_manual(target, ProjectConfig(), lambda: True, next_for_user=navigate, max_pages=2)
+    assert len(batch.pages) == 2
+    assert batch.pages[1].url == "https://example.com/next"
+    assert batch.pages[1].page_number == 2
+    assert batch.metadata["stopped_reason"] == "límite de capturas alcanzado"
+    inspector.return_value._check_robots_txt.assert_called_once_with("https://example.com/next")
+
+
+@pytest.mark.parametrize("allowed,status", [(False, 200), (None, 200), (True, 403)])
+def test_manual_additional_barrier_preserves_only_verified_page(allowed, status):
+    dom = prepare_dom()
+    driver = dom._driver
+    target = register_target("https://example.com/data")
+    def navigate(_count, _remaining):
+        driver.current_url = "https://example.com/next"
+        driver.execute_cdp_cmd.return_value = {"frameTree": {"frame": {"id": "main", "loaderId": "new"}}}
+        driver.get_log.return_value = [performance(status, driver.current_url, loader="new")]
+        return True
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.HtmlAnalyzer") as analyzer, \
+         patch("src.inspector.http_inspector.HttpInspector") as inspector:
+        cls.return_value.__enter__.return_value = dom
+        analyzer.return_value.analyze.return_value = {}
+        inspector.return_value._check_robots_txt.return_value = {"crawl_allowed": allowed}
+        batch = acquire_manual(target, ProjectConfig(), lambda: True, next_for_user=navigate, max_pages=2)
+    assert len(batch.pages) == 1
+    assert batch.errors
+    assert batch.metadata["stopped_reason"] == "no se pudo verificar la página adicional"
+
+
+def test_manual_next_rejects_same_document():
+    dom = prepare_dom()
+    target = register_target("https://example.com/data")
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.HtmlAnalyzer") as analyzer:
+        cls.return_value.__enter__.return_value = dom
+        analyzer.return_value.analyze.return_value = {}
+        batch = acquire_manual(target, ProjectConfig(), lambda: True,
+                               next_for_user=lambda *_: True, max_pages=2)
+    assert len(batch.pages) == 1
+    assert "documento nuevo" in batch.errors[0]
+
+
+@pytest.mark.selenium
+def test_manual_chrome_additional_page_real(tmp_path, monkeypatch):
+    from src.inspector.dom_inspector import DomInspector
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = (b"User-agent: *\nAllow: /\n" if self.path == "/robots.txt" else
+                    b"<html><body><article>Authorized data</article></body></html>")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain" if self.path == "/robots.txt" else "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    target = register_target(base + "/data", allow_private_network=True)
+    active = {}
+    class ObservableDom(DomInspector):
+        def __enter__(self):
+            active["dom"] = super().__enter__()
+            return active["dom"]
+    monkeypatch.setattr("src.extractor.manual_session.DomInspector", ObservableDom)
+    def navigate(_count, _remaining):
+        active["dom"]._driver.get(base + "/next")
+        return True
+    try:
+        batch = acquire_manual(target, ProjectConfig(), lambda: True,
+                               next_for_user=navigate, max_pages=2)
+        assert len(batch.pages) == 2, batch.errors
+        assert batch.pages[1].url == base + "/next"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+@pytest.mark.parametrize("mode", ["other_origin", "missing_response", "captcha"])
+def test_manual_additional_navigation_fails_closed(mode):
+    dom = prepare_dom()
+    driver = dom._driver
+    target = register_target("https://example.com/data")
+    def navigate(_count, _remaining):
+        driver.current_url = "https://other.example/next" if mode == "other_origin" else "https://example.com/next"
+        driver.execute_cdp_cmd.return_value = {"frameTree": {"frame": {"id": "main", "loaderId": "new"}}}
+        driver.get_log.return_value = [] if mode == "missing_response" else [performance(url=driver.current_url, loader="new")]
+        if mode == "captcha":
+            driver.find_elements.return_value = [object()]
+        return True
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.HtmlAnalyzer") as analyzer, \
+         patch("src.inspector.http_inspector.HttpInspector") as inspector:
+        cls.return_value.__enter__.return_value = dom
+        analyzer.return_value.analyze.return_value = {}
+        inspector.return_value._check_robots_txt.return_value = {"crawl_allowed": True}
+        batch = acquire_manual(target, ProjectConfig(), lambda: True, next_for_user=navigate, max_pages=2)
+    assert len(batch.pages) == 1
+    assert batch.errors

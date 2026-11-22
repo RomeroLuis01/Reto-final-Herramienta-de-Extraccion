@@ -69,6 +69,7 @@ class ExtractionService:
         use_selenium: bool = True,
         manual_wait: Callable[[], bool] | None = None,
         manual_retry: Callable[[str, float], bool] | None = None,
+        manual_next: Callable[[int, float], bool] | None = None,
     ) -> dict[str, Any]:
         """Ejecuta la extracción y devuelve un resumen sanitizado."""
         if target.auth_mode != "none":
@@ -110,7 +111,13 @@ class ExtractionService:
         if block_reason and manual_wait is not None:
             from src.extractor.manual_session import acquire_manual, manual_eligible
             if manual_eligible(target, effective_diagnosis):
-                manual_batch = acquire_manual(target, self.config, manual_wait, manual_retry)
+                if manual_next is None:
+                    manual_batch = acquire_manual(target, self.config, manual_wait, manual_retry)
+                else:
+                    manual_batch = acquire_manual(
+                        target, self.config, manual_wait, manual_retry, manual_next,
+                        max(1, int(max_pages or self.config.extraction.max_pages)),
+                    )
                 if not manual_batch.pages:
                     summary["errors"].extend(manual_batch.errors)
                     manual_batch = None
@@ -196,9 +203,11 @@ class ExtractionService:
                 "Las capturas obtenidas no demuestran que el contenido esté completo."
             )
         if strategy_used == "selenium_manual":
+            summary["coverage"]["stopped_reason"] = batch.metadata.get("stopped_reason", "sin captura adicional")
             summary["coverage"]["warnings"].append(
-                "El modo manual captura únicamente la página verificada; "
-                "esto no demuestra que se haya extraído toda la información."
+                ("El modo manual captura únicamente la página verificada; " if manual_next is None else
+                 "El modo manual captura solo páginas comprobadas individualmente; ")
+                + "esto no demuestra que se haya extraído toda la información."
             )
         summary["errors"].extend(batch.errors)
 
@@ -309,7 +318,7 @@ class ExtractionService:
             summary["errors"].append(f"No se pudo guardar el perfil de cambios: {exc}")
             logger.warning("No se pudo guardar el perfil de cambios: %s", exc)
 
-        summary["status"] = "partial" if storage_errors else "ok"
+        summary["status"] = "partial" if storage_errors or (strategy_used == "selenium_manual" and batch.errors) else "ok"
         summary["finished_at"] = datetime.now().isoformat(timespec="seconds")
         self._write_report(summary)
         logger.info(

@@ -253,7 +253,9 @@ class ExtractionApp:
                     max_records=options["max_records"], formats=options["formats"],
                     use_selenium=options["use_selenium"], manual_wait=manual_wait,
                     manual_retry=(lambda message, remaining: self._manual_prompt("retry", message, remaining))
-                    if manual_wait else None)
+                    if manual_wait else None,
+                    manual_next=(lambda count, remaining: self._manual_prompt("next", str(count), remaining))
+                    if manual_wait and options["max_pages"] > 1 else None)
                 self.messages.put(("text", "\nResultado de extracción:\n" + json.dumps(summary, ensure_ascii=False, indent=2, default=str) + "\n"))
         except Exception as exc:
             self.messages.put(("error", str(exc)))
@@ -286,6 +288,12 @@ class ExtractionApp:
                     "navegador visible para completar la interacción manualmente? "
                     "La extracción solo continuará si se confirma el acceso autorizado.")
             accept = "Abrir navegador"
+        elif request["stage"] == "next":
+            text = (f"Se capturaron {request['feedback']} página(s). Si desea añadir otra, navegue "
+                    "manualmente en el navegador al siguiente documento del mismo sitio y pulse "
+                    "Comprobar página. Se revisarán la respuesta, robots.txt y las barreras. "
+                    "Pulse Finalizar para conservar lo capturado.")
+            accept = "Comprobar página"
         elif request["stage"] == "retry":
             text = (request["feedback"] + "\n\nSi necesita completar el formulario, hágalo manualmente en el navegador. "
                     "Si ya ve una confirmación, permanezca en esa página y pulse Comprobar de nuevo, "
@@ -305,7 +313,8 @@ class ExtractionApp:
             request["event"].set()
             dialog.destroy()
         ttk.Button(buttons, text=accept, command=lambda: finish(True)).pack(side="left", padx=5)
-        ttk.Button(buttons, text="Cancelar", command=lambda: finish(False)).pack(side="left", padx=5)
+        ttk.Button(buttons, text="Finalizar" if request["stage"] == "next" else "Cancelar",
+                   command=lambda: finish(False)).pack(side="left", padx=5)
         dialog.protocol("WM_DELETE_WINDOW", lambda: finish(False))
         dialog.after(max(1, int(request.get("timeout", 300) * 1000) - 100),
                      lambda: finish(False) if dialog.winfo_exists() else None)
