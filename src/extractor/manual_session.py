@@ -34,7 +34,11 @@ def manual_eligible(target: AnalysisTarget, diagnosis: dict[str, Any]) -> bool:
 
 def _verified_status(driver: Any, url: str) -> int | None:
     """Busca la última respuesta Document del marco principal para la URL actual."""
-    frame = driver.execute_cdp_cmd("Page.getFrameTree", {})["frameTree"]["frame"]["id"]
+    frame_info = driver.execute_cdp_cmd("Page.getFrameTree", {})["frameTree"]["frame"]
+    frame = frame_info["id"]
+    loader = frame_info.get("loaderId")
+    if not loader:
+        return None
     final = urldefrag(url)[0]
     found = None
     for entry in driver.get_log("performance"):
@@ -42,7 +46,8 @@ def _verified_status(driver: Any, url: str) -> int | None:
             message = json.loads(entry["message"])["message"]
             params = message.get("params", {})
             if (message.get("method") != "Network.responseReceived"
-                    or params.get("type") != "Document" or params.get("frameId") != frame):
+                    or params.get("type") != "Document" or params.get("frameId") != frame
+                    or params.get("loaderId") != loader):
                 continue
             response = params.get("response") or {}
             if urldefrag(str(response.get("url", "")))[0] != final:
@@ -68,9 +73,6 @@ def acquire_manual(target: AnalysisTarget, config: ProjectConfig,
                           allow_private_network=target.allow_private_network) as dom:
             driver = dom._driver
             driver.get(target.url)
-            # La evidencia debe corresponder a una navegación durante la interacción,
-            # no a una respuesta previa al control manual.
-            driver.get_log("performance")
             if not wait_for_user():
                 batch.errors.append("Verificación manual cancelada o tiempo agotado.")
                 return batch
@@ -83,8 +85,11 @@ def acquire_manual(target: AnalysisTarget, config: ProjectConfig,
                 batch.errors.append("La página final no coincide con la URL autorizada o fue bloqueada por anti-SSRF.")
                 return batch
             status = _verified_status(driver, current)
-            if status is None or not 200 <= status < 300:
-                batch.errors.append("No se pudo confirmar una respuesta HTTP exitosa del documento principal en la sesión.")
+            if status is None:
+                batch.errors.append("No se pudo confirmar la respuesta HTTP de la página actual. Si ya completó la verificación, recargue la URL original y vuelva a intentarlo.")
+                return batch
+            if not 200 <= status < 300:
+                batch.errors.append(f"La página actual respondió HTTP {status}; el acceso no se ha confirmado y la extracción permanece detenida.")
                 return batch
             html = driver.page_source
             visible_text = driver.find_element("tag name", "body").text.strip()

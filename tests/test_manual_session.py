@@ -29,9 +29,9 @@ def test_eligibility(diagnosis_value, expected):
     assert manual_eligible(register_target("https://example.com/data"), diagnosis_value) is expected
 
 
-def performance(status=200, url="https://example.com/data", headers=None):
+def performance(status=200, url="https://example.com/data", headers=None, loader="loader", frame="main"):
     return {"message": json.dumps({"message": {"method": "Network.responseReceived", "params": {
-        "type": "Document", "frameId": "main", "response": {"url": url, "status": status, "headers": headers or {}}}}})}
+        "type": "Document", "frameId": frame, "loaderId": loader, "response": {"url": url, "status": status, "headers": headers or {}}}}})}
 
 
 def prepare_dom(status=200, url="https://example.com/data"):
@@ -41,8 +41,8 @@ def prepare_dom(status=200, url="https://example.com/data"):
     driver.page_source = "<html><body><article>Dato autorizado</article></body></html>"
     driver.find_element.return_value.text = "Dato autorizado"
     driver.find_elements.return_value = []
-    driver.execute_cdp_cmd.return_value = {"frameTree": {"frame": {"id": "main"}}}
-    driver.get_log.side_effect = [[], [performance(status, url)]]
+    driver.execute_cdp_cmd.return_value = {"frameTree": {"frame": {"id": "main", "loaderId": "loader"}}}
+    driver.get_log.return_value = [performance(status, url)]
     return dom
 
 
@@ -64,7 +64,7 @@ def test_manual_success_uses_same_browser_and_captures_verified_document():
     assert result.pages[0].status_code == 200
     assert result.pages[0].html == dom._driver.page_source
     dom._driver.get.assert_called_once_with("https://example.com/data")
-    assert dom._driver.get_log.call_count == 2
+    assert dom._driver.get_log.call_count == 1
 
 
 def test_cancel_does_not_extract():
@@ -75,19 +75,43 @@ def test_cancel_does_not_extract():
 
 @pytest.mark.parametrize("status", [403, 429, 503])
 def test_failed_http_cannot_continue(status):
-    assert not acquire(prepare_dom(status)).pages
+    result = acquire(prepare_dom(status))
+    assert not result.pages
+    assert f"HTTP {status}" in result.errors[0]
+    assert "recargue" not in result.errors[0].lower()
 
 
 def test_unknown_status_and_wrong_origin_cannot_continue():
     dom = prepare_dom()
-    dom._driver.get_log.side_effect = [[], []]
-    assert not acquire(dom).pages
+    dom._driver.get_log.return_value = []
+    result = acquire(dom)
+    assert not result.pages
+    assert "recargue" in result.errors[0].lower()
     assert not acquire(prepare_dom(url="https://other.example/data")).pages
+
+
+def test_initial_response_is_accepted_without_reload():
+    dom = prepare_dom()
+    result = acquire(dom)
+    assert result.pages and result.pages[0].status_code == 200
+
+
+def test_response_from_an_old_loader_or_another_frame_is_rejected():
+    for event in (performance(loader="old"), performance(frame="other")):
+        dom = prepare_dom()
+        dom._driver.get_log.return_value = [event]
+        assert not acquire(dom).pages
+
+
+def test_missing_current_loader_is_rejected():
+    dom = prepare_dom()
+    dom._driver.execute_cdp_cmd.return_value = {"frameTree": {"frame": {"id": "main"}}}
+    assert not acquire(dom).pages
 
 
 def test_http_200_with_challenge_header_is_not_success():
     dom = prepare_dom()
-    dom._driver.get_log.side_effect = [[], [performance(200, headers={"Cf-Mitigated": "challenge"})]]
+    dom._driver.get_log.return_value = [performance(200, headers={"Cf-Mitigated": "challenge"})]
     assert not acquire(dom).pages
 
 
@@ -203,6 +227,36 @@ def test_manual_chrome_local_real_session(tmp_path, monkeypatch, resolve, expect
         assert state["requests"] >= 2
         assert state["cookie_reused"]
         assert "manual_test_session" not in str(result)
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+@pytest.mark.selenium
+def test_manual_chrome_initial_success_without_reload(tmp_path):
+    from src.config.settings import PathConfig
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"<html><body><article><p>Dato autorizado</p></article></body></html>")
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    target = register_target(f"http://127.0.0.1:{server.server_port}/data", allow_private_network=True)
+    try:
+        config = ProjectConfig(paths=PathConfig(base_dir=tmp_path))
+        result = ExtractionService(config).run(
+            target, diagnosis=diagnosis(), manual_wait=lambda: True, formats=["json"], max_pages=1
+        )
+        assert result["status"] == "ok", result.get("errors")
+        assert result["pages"][0]["status_code"] == 200
+        assert result["raw_records"] == 1
     finally:
         server.shutdown()
         server.server_close()

@@ -164,7 +164,7 @@ class ExtractionApp:
             accept = "Abrir navegador"
         else:
             text = ("Completa la verificación o inicio de sesión en el navegador abierto. "
-                    "Al terminar, vuelve a cargar manualmente la página solicitada y pulsa Continuar. "
+                    "Al terminar, permanece en la página solicitada y pulsa Continuar. "
                     "No se resolverá ninguna verificación automáticamente.")
             accept = "Continuar"
         ttk.Label(frame, text=text, wraplength=460).pack(pady=(0, 12))
