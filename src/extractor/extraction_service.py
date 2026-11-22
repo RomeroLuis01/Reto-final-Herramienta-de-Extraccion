@@ -167,6 +167,17 @@ class ExtractionService:
         strategy_used = batch.method
         summary["extraction_config"]["strategy"] = strategy_used
         summary["pages"] = batch.to_dict()["pages"]
+        summary["coverage"] = {
+            "requested_max_pages": max_pages,
+            "captured_pages": len(batch.pages),
+            "record_limit_reached": False,
+            "warnings": [],
+        }
+        if strategy_used == "selenium_manual":
+            summary["coverage"]["warnings"].append(
+                "El modo manual captura únicamente la página verificada; "
+                "esto no demuestra que se haya extraído toda la información."
+            )
         summary["errors"].extend(batch.errors)
 
         if not batch.pages:
@@ -198,6 +209,11 @@ class ExtractionService:
 
         raw_records = self._select_records(schema, batch, max_records)
         summary["raw_records"] = len(raw_records)
+        if len(raw_records) >= max_records:
+            summary["coverage"]["record_limit_reached"] = True
+            summary["coverage"]["warnings"].append(
+                "Se alcanzó el límite de registros; es posible que existan más datos."
+            )
         if not raw_records:
             summary["status"] = "error"
             summary["errors"].append(

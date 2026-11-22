@@ -98,6 +98,15 @@ class ExtractionReporter:
             lines.append("  (ninguna)")
         lines.append("")
 
+        coverage = summary.get("coverage") or {}
+        if coverage:
+            lines.append("--- Alcance de la extracción ---")
+            lines.append(f"Páginas máximas solicitadas: {coverage.get('requested_max_pages', '-')}")
+            lines.append(f"Páginas capturadas         : {coverage.get('captured_pages', 0)}")
+            for warning in coverage.get("warnings") or []:
+                lines.append(f"  Aviso: {warning}")
+            lines.append("")
+
         lines.append("--- Resultados ---")
         lines.append(f"Registros crudos     : {summary.get('raw_records', 0)}")
         lines.append(f"Registros procesados : {summary.get('processed_records', 0)}")

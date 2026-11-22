@@ -144,6 +144,36 @@ def test_service_runs_pipeline_on_verified_manual_snapshot(tmp_path):
     manual.assert_called_once()
 
 
+@pytest.mark.parametrize("record_limit,limit_reached", [(2, True), (3, False)])
+def test_manual_reports_capture_scope_and_possible_record_limit(tmp_path, record_limit, limit_reached):
+    from pathlib import Path
+    from src.config.settings import PathConfig
+
+    target = register_target("https://example.com/data")
+    config = ProjectConfig(paths=PathConfig(base_dir=tmp_path))
+    html = "<main><article><p>Uno</p></article><article><p>Dos</p></article></main>"
+    batch = ExtractionBatch(method="selenium_manual", pages=[PageSnapshot(
+        url=target.url, html=html, final_url=target.url, method="selenium_manual", status_code=200)])
+    with patch("src.extractor.manual_session.acquire_manual", return_value=batch):
+        result = ExtractionService(config).run(
+            target, diagnosis=diagnosis(), manual_wait=lambda: True,
+            formats=["json"], max_pages=3, max_records=record_limit,
+        )
+    assert result["status"] == "ok"
+    coverage = result["coverage"]
+    assert coverage["requested_max_pages"] == 3
+    assert coverage["captured_pages"] == 1
+    assert coverage["record_limit_reached"] is limit_reached
+    assert any("únicamente la página verificada" in warning for warning in coverage["warnings"])
+    assert any("posible que existan más" in warning for warning in coverage["warnings"]) is limit_reached
+    persisted = json.loads(Path(result["report_files"]["json"]).read_text(encoding="utf-8"))
+    assert persisted["coverage"] == coverage
+    report_text = Path(result["report_files"]["txt"]).read_text(encoding="utf-8")
+    assert "Páginas máximas solicitadas: 3" in report_text
+    assert "Páginas capturadas         : 1" in report_text
+    assert "no demuestra que se haya extraído toda la información" in report_text
+
+
 @pytest.mark.parametrize("diag", [diagnosis(challenge=False), diagnosis(robots=False), diagnosis(status=429)])
 def test_service_never_opens_manual_session_for_hard_barriers(tmp_path, diag):
     from src.config.settings import PathConfig
