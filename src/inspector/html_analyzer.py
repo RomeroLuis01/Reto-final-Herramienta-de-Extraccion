@@ -600,8 +600,14 @@ class HtmlAnalyzer:
         selects = len(self._soup.find_all("select"))
         onclicks = len(self._soup.find_all(attrs={"onclick": True}))
         search_forms = sum(1 for f in forms if not f.get("has_password"))
+        inline_js = "\n".join(tag.string for tag in self._soup.find_all("script") if tag.string)
+        # Solo son indicios: el código puede no ejecutarse o no asociarse a contenido.
+        listeners = len(re.findall(
+            r"\baddEventListener\s*\(\s*['\"](?:click|change|input|submit|mouseover|keydown)['\"]",
+            inline_js, flags=re.IGNORECASE,
+        ))
 
-        requires_interaction = any([tabs, accordions, modals, selects, onclicks])
+        requires_interaction = any([tabs, accordions, modals, selects, onclicks, listeners])
         return {
             "requires_interaction_probable": requires_interaction,
             "tabs_count": tabs,
@@ -609,6 +615,7 @@ class HtmlAnalyzer:
             "modals_count": modals,
             "dropdown_filters_count": selects,
             "inline_event_handlers_count": onclicks,
+            "user_event_listener_hints_count": listeners,
             "interactive_forms_count": search_forms,
         }
 

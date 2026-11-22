@@ -264,6 +264,11 @@ class WebInspector:
         # ---- Paso 5: Consolidar información de red ----
         diagnosis["network"] = {
             "rest_api_detected": dom_result.get("rest_api_detected", False),
+            "graphql_network_hint": bool(dom_result.get("graphql_detected", False)),
+            "graphql_inline_hint": bool((html_analysis.get("inline_api_calls") or {}).get("graphql_in_inline_js")),
+            "xhr_fetch_observed": bool(dom_result.get("xhr_fetch_detected", False)),
+            "xhr_fetch_inline_hint": bool((html_analysis.get("inline_api_calls") or {}).get("fetch_in_inline_js")
+                                          or (html_analysis.get("inline_api_calls") or {}).get("xhr_ajax_in_inline_js")),
             "graphql_detected": dom_result.get("graphql_detected", False)
             or bool((html_analysis.get("inline_api_calls") or {}).get("graphql_in_inline_js")),
             "xhr_fetch_detected": dom_result.get("xhr_fetch_detected", False)
@@ -434,6 +439,8 @@ class WebInspector:
                 or (html.get("time_dependent_hints") or {}).get("uses_set_interval")
                 or (html.get("time_dependent_hints") or {}).get("uses_eventsource_sse")
             ),
+            "timed_text_growth_heuristic": bool(dom.get("time_dependent_content", False)),
+            "time_dependent_hints": dict(html.get("time_dependent_hints") or {}),
             "inline_api_calls": inline_api,
             "embedded_data_formats": html.get("embedded_data_formats", {}),
         }
@@ -444,6 +451,7 @@ class WebInspector:
             "requires_interaction_probable": bool(
                 static_inter.get("requires_interaction_probable", False)
             ),
+            "user_event_listener_hints_count": static_inter.get("user_event_listener_hints_count", 0),
             "tabs_count": dom_inter.get("tabs", static_inter.get("tabs_count", 0)),
             "accordions_count": dom_inter.get(
                 "accordions", static_inter.get("accordions_count", 0)
