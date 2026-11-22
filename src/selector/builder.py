@@ -301,10 +301,22 @@ class SchemaBuilder:
                            for peer in peers):
                         continue
                     selector = f"{child_selector} > *:nth-child({index})"
-                    label = child.get("data-field") or f"campo_{index}"
-                    name = cls._safe_name(str(label), index - 1)
-                    if name in used:
-                        name = f"{name}_{index}"
+                    # Una etiqueta semántica solo describe la columna si es
+                    # estable entre los registros; no usar valores de una fila.
+                    label = None
+                    for attribute in ("data-field", "aria-label"):
+                        candidate = child.get(attribute)
+                        if (candidate and str(candidate).strip()
+                                and all(peer[index - 1].get(attribute) == candidate
+                                        for peer in peers)):
+                            label = candidate
+                            break
+                    base_name = cls._safe_name(str(label or child.name), index - 1)
+                    name = base_name
+                    suffix = 2
+                    while name in used:
+                        name = f"{base_name}_{suffix}"
+                        suffix += 1
                     used.add(name)
                     fields.append(FieldSelector(name, selector, attribute="text"))
                 if len(fields) < 3:
@@ -338,11 +350,13 @@ class SchemaBuilder:
         )
         fields = []
         used: set[str] = set()
+        sample_cells = data_rows[0].find_all(["th", "td"], recursive=False)
         for index in range(count):
+            tag = sample_cells[index].name if index < len(sample_cells) else "td"
             header = (
                 headers[index]
                 if index < len(headers) and headers[index]
-                else f"Columna {index + 1}"
+                else f"{tag}_{index + 1}"
             )
             base_name = SchemaBuilder._safe_name(header, index)
             name = base_name

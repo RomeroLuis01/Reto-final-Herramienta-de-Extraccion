@@ -66,3 +66,29 @@ def test_alternating_classes_without_roles_include_all_rows_not_other_siblings()
         "https://example.com/three", "https://example.com/four",
     ]
     assert [record["aceptacion"] for record in records] == ["10%", "20%", "30%", "40%"]
+
+
+def test_repeated_rows_use_html_tags_and_stable_semantic_attributes():
+    html = '''<main><section>
+      <div><a href="/one">Uno</a><p>Primero</p><p>Otro</p><span aria-label="Dificultad">Fácil</span><span aria-label="Título uno">1</span></div>
+      <div><a href="/two">Dos</a><p>Segundo</p><p>Otro más</p><span aria-label="Dificultad">Media</span><span aria-label="Título dos">2</span></div>
+      </section></main>'''
+    schema = build(html)
+    assert [field.name for field in schema.fields] == [
+        "titulo", "enlace", "p", "p_2", "dificultad", "span"
+    ]
+    records = schema.apply(html, base_url="https://example.com")
+    assert [(row["p"], row["p_2"], row["dificultad"], row["span"]) for row in records] == [
+        ("Primero", "Otro", "Fácil", "1"), ("Segundo", "Otro más", "Media", "2")
+    ]
+
+
+def test_repeated_rows_duplicate_semantic_labels_do_not_overwrite_fields():
+    html = '''<main>
+      <div><a href="/one">Uno</a><p data-field="titulo">Primero</p><p data-field="titulo">Otro</p></div>
+      <div><a href="/two">Dos</a><p data-field="titulo">Segundo</p><p data-field="titulo">Más</p></div>
+      </main>'''
+    schema = build(html)
+    assert [field.name for field in schema.fields] == ["titulo", "enlace", "titulo_2", "titulo_3"]
+    records = schema.apply(html, base_url="https://example.com")
+    assert [record["titulo_3"] for record in records] == ["Otro", "Más"]

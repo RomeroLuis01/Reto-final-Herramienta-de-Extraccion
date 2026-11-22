@@ -27,6 +27,13 @@ def test_duplicate_headers_keep_both_fields_and_rows_without_tbody():
 def test_no_headers_are_not_invented_from_first_row():
     schema, records = extract("""<table><tbody><tr><td>Uno</td><td>Dos</td></tr>
     <tr><td>Tres</td><td>Cuatro</td></tr></tbody></table>""")
-    assert [f.name for f in schema.fields] == ["columna_1", "columna_2"]
-    assert records == [{"columna_1": "Uno", "columna_2": "Dos"},
-                       {"columna_1": "Tres", "columna_2": "Cuatro"}]
+    assert [f.name for f in schema.fields] == ["td_1", "td_2"]
+    assert records == [{"td_1": "Uno", "td_2": "Dos"},
+                       {"td_1": "Tres", "td_2": "Cuatro"}]
+
+
+def test_missing_header_uses_actual_cell_tag_without_duplicate_names():
+    schema, records = extract("""<table><thead><tr><th>td_2</th><th></th></tr></thead>
+      <tbody><tr><th>Primero</th><td>Segundo</td></tr></tbody></table>""")
+    assert [field.name for field in schema.fields] == ["td_2", "td_2_2"]
+    assert records == [{"td_2": "Primero", "td_2_2": "Segundo"}]
