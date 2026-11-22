@@ -64,6 +64,11 @@ class ProfileManager:
         html = clean_diagnosis.get("html_analysis", {}) or {}
         via = clean_diagnosis.get("viability", {}) or {}
         net = clean_diagnosis.get("network", {}) or {}
+        # Solo la lista declarada explícitamente acredita autorización; una
+        # petición observada en el navegador no la acredita.
+        if isinstance(net.get("authorized_endpoints"), list):
+            net["authorized_endpoints"] = [sanitize_url(str(endpoint))
+                                           for endpoint in net["authorized_endpoints"]]
         prot = clean_diagnosis.get("protection", {}) or {}
         pag = clean_diagnosis.get("pagination", {}) or {}
 
@@ -77,7 +82,9 @@ class ProfileManager:
         }
         profile["detected_technologies"] = clean_diagnosis.get("technologies", {})
         profile["loading_mechanisms"] = clean_diagnosis.get("acquisition_mechanisms", {})
-        profile["authorized_endpoints"] = net.get("endpoints_observed", [])
+        profile["observed_endpoints"] = net.get("endpoints_observed", [])
+        profile["authorized_endpoints"] = net.get("authorized_endpoints", [])
+        profile["endpoint_classification_version"] = 1
         profile["identified_selectors"] = clean_diagnosis.get("candidate_selectors", {})
         profile["pagination_mechanisms"] = pag
         profile["protection_mechanisms"] = {
@@ -158,8 +165,13 @@ class ProfileManager:
             "baseline_available": True,
             "selectors": cls._changes(previous.get("candidate_selectors"),
                                       current.get("candidate_selectors")),
+            # Conserva la clave histórica como alias de endpoints observados.
             "endpoints": cls._changes(old_network.get("endpoints_observed"),
                                       new_network.get("endpoints_observed")),
+            "observed_endpoints": cls._changes(old_network.get("endpoints_observed"),
+                                               new_network.get("endpoints_observed")),
+            "authorized_endpoints": cls._changes(old_network.get("authorized_endpoints"),
+                                                 new_network.get("authorized_endpoints")),
         }
 
     @staticmethod
@@ -234,6 +246,20 @@ class ProfileManager:
             if not isinstance(profile, dict):
                 logger.warning("Perfil corrupto (estructura no válida): %s", profile_path.name)
                 return None
+            if profile.get("endpoint_classification_version") != 1:
+                # Los perfiles anteriores llamaban autorizados a los endpoints
+                # observados. Conservarlos como evidencia sin atribuir permiso.
+                legacy = profile.get("authorized_endpoints")
+                if legacy:
+                    profile["legacy_endpoints_unverified"] = legacy
+                diagnosis = profile.get("current_diagnosis") or {}
+                network = diagnosis.get("network") or {}
+                profile["observed_endpoints"] = network.get("endpoints_observed", [])
+                profile["authorized_endpoints"] = []
+                reusable = profile.get("reusable_config")
+                if isinstance(reusable, dict):
+                    reusable["known_endpoints"] = []
+                profile["endpoint_classification_version"] = 1
             logger.info(
                 "Perfil previo cargado (%s análisis previos).",
                 profile.get("analysis_count", 0),

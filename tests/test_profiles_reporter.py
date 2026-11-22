@@ -254,3 +254,45 @@ class TestChangeDetection:
         stored = (tmp_path / "example_com.json").read_text(encoding="utf-8")
         assert "secret" not in stored and "another" not in stored
         assert manager.load("https://example.com")["extraction_changes"] == changes
+
+
+def test_profile_separates_observed_and_explicit_authorized_endpoints(tmp_path):
+    manager = ProfileManager(tmp_path)
+    first = {**SAMPLE_DIAGNOSIS, "network": {
+        "endpoints_observed": ["https://example.com/observed?token=secret"],
+        "authorized_endpoints": ["https://example.com/allowed?token=secret"],
+    }}
+    second = {**first, "network": {
+        "endpoints_observed": ["https://example.com/new"],
+        "authorized_endpoints": [],
+    }}
+    manager.save(first)
+    profile = manager.load(first["url"])
+    assert "observed" in profile["observed_endpoints"][0]
+    assert "allowed" in profile["authorized_endpoints"][0]
+    assert "secret" not in (tmp_path / "example_com.json").read_text(encoding="utf-8")
+    manager.save(second)
+    changes = manager.load(first["url"])["diagnosis_changes"]
+    assert changes["observed_endpoints"]["added"] == ["https://example.com/new"]
+    assert len(changes["authorized_endpoints"]["removed"]) == 1
+    assert changes["endpoints"] == changes["observed_endpoints"]
+
+
+def test_legacy_endpoint_labels_are_not_treated_as_authorization(tmp_path):
+    manager = ProfileManager(tmp_path)
+    legacy = {
+        "url": "https://example.com", "authorized_endpoints": ["https://example.com/api"],
+        "current_diagnosis": {"network": {"endpoints_observed": ["https://example.com/api"]}},
+        "reusable_config": {"known_endpoints": ["https://example.com/api"]},
+    }
+    (tmp_path / "example_com.json").write_text(json.dumps(legacy), encoding="utf-8")
+    profile = manager.load(legacy["url"])
+    assert profile["legacy_endpoints_unverified"] == legacy["authorized_endpoints"]
+    assert profile["observed_endpoints"] == legacy["authorized_endpoints"]
+    assert profile["authorized_endpoints"] == []
+    assert manager.get_reusable_config(legacy["url"])["known_endpoints"] == []
+    manager.save(SAMPLE_DIAGNOSIS)
+    stored = manager.load(legacy["url"])
+    assert stored["legacy_endpoints_unverified"] == legacy["authorized_endpoints"]
+    assert stored["authorized_endpoints"] == []
+    assert not stored["diagnosis_changes"]["authorized_endpoints"]["available"]
