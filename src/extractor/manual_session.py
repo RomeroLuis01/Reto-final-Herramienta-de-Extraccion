@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import replace
 from typing import Any, Callable
 from urllib.parse import urldefrag, urlsplit
@@ -60,7 +61,8 @@ def _verified_status(driver: Any, url: str) -> int | None:
 
 
 def acquire_manual(target: AnalysisTarget, config: ProjectConfig,
-                   wait_for_user: Callable[[], bool]) -> ExtractionBatch:
+                   wait_for_user: Callable[[], bool],
+                   retry_for_user: Callable[[str, float], bool] | None = None) -> ExtractionBatch:
     """El usuario interactúa; solo se captura la página comprobada en esa sesión."""
     batch = ExtractionBatch(method="selenium_manual")
     safe, _ = validate_url_security(target.url, resolve_dns=not target.allow_private_network,
@@ -73,44 +75,66 @@ def acquire_manual(target: AnalysisTarget, config: ProjectConfig,
                           allow_private_network=target.allow_private_network) as dom:
             driver = dom._driver
             driver.get(target.url)
+            deadline = time.monotonic() + 300
             if not wait_for_user():
                 batch.errors.append("Verificación manual cancelada o tiempo agotado.")
                 return batch
-            current = driver.current_url
-            safe, _ = validate_url_security(current, resolve_dns=not target.allow_private_network,
-                                            allow_private_network=target.allow_private_network)
-            if (not safe or origin(current) != origin(target.url)
-                    or urlsplit(current).path.rstrip("/") != urlsplit(target.url).path.rstrip("/")
-                    or urlsplit(current).query != urlsplit(target.url).query):
-                batch.errors.append("La página final no coincide con la URL autorizada o fue bloqueada por anti-SSRF.")
-                return batch
-            status = _verified_status(driver, current)
-            if status is None:
-                batch.errors.append("No se pudo confirmar la respuesta HTTP de la página actual. Si ya completó la verificación, recargue la URL original y vuelva a intentarlo.")
-                return batch
-            if not 200 <= status < 300:
-                batch.errors.append(f"La página actual respondió HTTP {status}; el acceso no se ha confirmado y la extracción permanece detenida.")
-                return batch
-            html = driver.page_source
-            visible_text = driver.find_element("tag name", "body").text.strip()
-            if not html or not visible_text:
-                batch.errors.append("La página verificada no contiene texto visible.")
-                return batch
-            selectors = _CAPTCHA_SELECTORS + (
-                "input[type='password']", "form[action*='login']", "form[action*='signin']",
-                "[id*='login-form']", "[class*='login-form']", "[id='challenge-form']",
-            )
-            # Una excepción al consultar el DOM no equivale a ausencia de barreras.
-            blocked_dom = any(driver.find_elements(By.CSS_SELECTOR, selector) for selector in selectors)
-            analysis = HtmlAnalyzer(html, base_url=current).analyze()
-            if (blocked_dom
-                    or analysis.get("captcha_indicators")
-                    or (analysis.get("auth_indicators") or {}).get("has_login_form")
-                    or "just a moment" in visible_text.lower()):
-                batch.errors.append("La página aún muestra una verificación o autenticación; extracción detenida.")
-                return batch
-            batch.pages.append(PageSnapshot(url=sanitize_url(target.url), final_url=sanitize_url(current),
-                                             html=html, status_code=status, method=batch.method))
+            while True:
+                if time.monotonic() >= deadline:
+                    batch.errors.append("Verificación manual cancelada o tiempo agotado.")
+                    return batch
+                error, retryable = _capture_verified(driver, target, batch)
+                if not error:
+                    return batch
+                remaining = deadline - time.monotonic()
+                if retry_for_user is None or remaining <= 0 or not retryable:
+                    batch.errors.append(error)
+                    return batch
+                if not retry_for_user(error, remaining):
+                    batch.errors.extend([error, "Verificación manual cancelada o tiempo agotado."])
+                    return batch
+                if time.monotonic() >= deadline:
+                    batch.errors.append("Verificación manual cancelada o tiempo agotado.")
+                    return batch
     except Exception:
         batch.errors.append("No se pudo verificar la sesión manual. La extracción permanece detenida.")
     return batch
+
+
+def _capture_verified(driver: Any, target: AnalysisTarget, batch: ExtractionBatch) -> tuple[str, bool]:
+    """Valida solo la navegación actual; no conserva registros de red ni tokens."""
+    try:
+        current = driver.current_url
+        safe, _ = validate_url_security(current, resolve_dns=not target.allow_private_network,
+                                        allow_private_network=target.allow_private_network)
+        if (not safe or origin(current) != origin(target.url)
+                or urlsplit(current).path.rstrip("/") != urlsplit(target.url).path.rstrip("/")
+                or urlsplit(current).query != urlsplit(target.url).query):
+            return "La página final no coincide con la URL autorizada o fue bloqueada por anti-SSRF.", False
+        status = _verified_status(driver, current)
+        if status is None:
+            return "No se pudo confirmar la respuesta HTTP de la página actual. Recargue la URL original y vuelva a comprobar.", True
+        if not 200 <= status < 300:
+            return f"La página actual respondió HTTP {status}; el acceso no se ha confirmado y la extracción permanece detenida.", False
+        html = driver.page_source
+        visible_text = driver.find_element("tag name", "body").text.strip()
+        if not html or not visible_text:
+            return "La página verificada no contiene texto visible.", True
+        selectors = _CAPTCHA_SELECTORS + (
+            "input[type='password']", "form[action*='login']", "form[action*='signin']",
+            "[id*='login-form']", "[class*='login-form']", "[id='challenge-form']",
+        )
+        # Una excepción al consultar el DOM no equivale a ausencia de barreras.
+        blocked_dom = any(driver.find_elements(By.CSS_SELECTOR, selector) for selector in selectors)
+        analysis = HtmlAnalyzer(html, base_url=current).analyze()
+        if (blocked_dom
+                or analysis.get("captcha_indicators")
+                or (analysis.get("auth_indicators") or {}).get("has_login_form")
+                or "just a moment" in visible_text.lower()):
+            return ("La página aún muestra una verificación o autenticación. Marcar la casilla puede no ser suficiente; "
+                    "si el sitio lo requiere, pulse Submit manualmente y abra nuevamente la URL original antes de comprobar."), True
+        batch.pages.append(PageSnapshot(url=sanitize_url(target.url), final_url=sanitize_url(current),
+                                         html=html, status_code=status, method=batch.method))
+        return "", False
+    except Exception:
+        return "No se pudo verificar la sesión manual. La extracción permanece detenida.", False

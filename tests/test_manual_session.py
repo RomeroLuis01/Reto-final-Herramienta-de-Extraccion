@@ -127,6 +127,120 @@ def test_dom_check_failure_is_not_treated_as_clear():
     assert not acquire(dom).pages
 
 
+def test_manual_retry_keeps_session_and_requires_new_response():
+    dom = prepare_dom()
+    dom._driver.find_elements.side_effect = [[object()]] + [[]] * 100
+    dom._driver.get_log.side_effect = [[performance()], [performance(loader="new")]]
+    dom._driver.execute_cdp_cmd.side_effect = [
+        {"frameTree": {"frame": {"id": "main", "loaderId": "loader"}}},
+        {"frameTree": {"frame": {"id": "main", "loaderId": "new"}}},
+    ]
+    target = register_target("https://example.com/data")
+    retry = MagicMock(return_value=True)
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.HtmlAnalyzer") as analyzer:
+        cls.return_value.__enter__.return_value = dom
+        analyzer.return_value.analyze.return_value = {}
+        result = acquire_manual(target, ProjectConfig(), lambda: True, retry)
+    assert len(result.pages) == 1
+    assert dom._driver.get.call_count == 1
+    assert "Submit" in retry.call_args.args[0]
+    assert 0 < retry.call_args.args[1] <= 300
+
+
+def test_manual_retry_cancel_keeps_barrier_and_does_not_read_tokens():
+    dom = prepare_dom()
+    dom._driver.find_elements.return_value = [object()]
+    target = register_target("https://example.com/data")
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls:
+        cls.return_value.__enter__.return_value = dom
+        result = acquire_manual(target, ProjectConfig(), lambda: True, lambda _reason, _remaining: False)
+    assert not result.pages
+    assert any("cancelada" in error for error in result.errors)
+    dom._driver.get_cookies.assert_not_called()
+
+
+@pytest.mark.parametrize("status", [403, 429, 503])
+def test_manual_retry_does_not_accept_hard_http_barriers(status):
+    dom = prepare_dom(status)
+    target = register_target("https://example.com/data")
+    retry = MagicMock(return_value=False)
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls:
+        cls.return_value.__enter__.return_value = dom
+        result = acquire_manual(target, ProjectConfig(), lambda: True, retry)
+    assert not result.pages
+    retry.assert_not_called()
+    assert any(f"HTTP {status}" in error for error in result.errors)
+
+
+def test_manual_retry_does_not_accept_unauthorized_url():
+    dom = prepare_dom(url="https://other.example/data")
+    target = register_target("https://example.com/data")
+    retry = MagicMock(return_value=True)
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls:
+        cls.return_value.__enter__.return_value = dom
+        result = acquire_manual(target, ProjectConfig(), lambda: True, retry)
+    assert not result.pages
+    retry.assert_not_called()
+
+
+def test_manual_retry_does_not_accept_ssrf():
+    dom = prepare_dom()
+    target = register_target("https://example.com/data")
+    retry = MagicMock(return_value=True)
+    with patch("src.extractor.manual_session.validate_url_security", side_effect=[(True, "ok"), (False, "ssrf")]), \
+         patch("src.extractor.manual_session.DomInspector") as cls:
+        cls.return_value.__enter__.return_value = dom
+        result = acquire_manual(target, ProjectConfig(), lambda: True, retry)
+    assert not result.pages
+    retry.assert_not_called()
+
+
+def test_script_only_cannot_prove_challenge_was_accepted():
+    dom = prepare_dom()
+    target = register_target("https://example.com/data")
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.HtmlAnalyzer") as analyzer:
+        cls.return_value.__enter__.return_value = dom
+        analyzer.return_value.analyze.return_value = {"captcha_indicators": ["script"]}
+        result = acquire_manual(target, ProjectConfig(), lambda: True)
+    assert not result.pages
+
+
+def test_retry_requires_new_http_evidence_for_current_navigation():
+    dom = prepare_dom()
+    dom._driver.find_elements.side_effect = [[object()]] + [[]] * 100
+    dom._driver.get_log.side_effect = [[performance()], []]
+    target = register_target("https://example.com/data")
+    answers = iter([True, False])
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.HtmlAnalyzer") as analyzer:
+        cls.return_value.__enter__.return_value = dom
+        analyzer.return_value.analyze.return_value = {}
+        result = acquire_manual(target, ProjectConfig(), lambda: True, lambda *_: next(answers))
+    assert not result.pages
+    assert any("respuesta HTTP" in error for error in result.errors)
+
+
+def test_manual_timeout_is_global():
+    dom = prepare_dom()
+    dom._driver.find_elements.return_value = [object()]
+    target = register_target("https://example.com/data")
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.time.monotonic", side_effect=[0, 1, 2, 301]):
+        cls.return_value.__enter__.return_value = dom
+        result = acquire_manual(target, ProjectConfig(), lambda: True, lambda *_: True)
+    assert not result.pages
+    assert any("tiempo agotado" in error for error in result.errors)
+
+
 def test_service_runs_pipeline_on_verified_manual_snapshot(tmp_path):
     from src.config.settings import PathConfig
     target = register_target("https://example.com/data")
@@ -194,6 +308,55 @@ def test_service_cancel_stays_blocked(tmp_path):
             target, diagnosis=diagnosis(), manual_wait=lambda: False)
     assert result["status"] == "blocked"
     assert any("cancelada" in message for message in result["errors"])
+
+
+@pytest.mark.selenium
+def test_manual_chrome_retry_after_user_completes_form(tmp_path, monkeypatch):
+    from src.inspector.dom_inspector import DomInspector
+
+    state = {"submitted": False, "cookie_reused": False}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            state["cookie_reused"] |= "manual_test_session=present" in self.headers.get("Cookie", "")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Set-Cookie", "manual_test_session=present; Path=/; HttpOnly")
+            self.end_headers()
+            body = (b"<html><body><article><p>Dato autorizado</p></article></body></html>"
+                    if state["submitted"] and state["cookie_reused"]
+                    else b"<html><body><div class='g-recaptcha'>Verificacion</div></body></html>")
+            self.wfile.write(body)
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    target = register_target(f"http://127.0.0.1:{server.server_port}/data", allow_private_network=True)
+    active = {}
+
+    class ObservableDom(DomInspector):
+        def __enter__(self):
+            active["dom"] = super().__enter__()
+            return active["dom"]
+
+    monkeypatch.setattr("src.extractor.manual_session.DomInspector", ObservableDom)
+
+    def retry(reason, _remaining):
+        assert "Submit" in reason
+        state["submitted"] = True
+        active["dom"]._driver.get(target.url)
+        return True
+
+    try:
+        result = acquire_manual(target, ProjectConfig(), lambda: True, retry)
+        assert result.pages and result.pages[0].status_code == 200
+        assert state["cookie_reused"]
+        assert "manual_test_session" not in str(result.to_dict())
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 @pytest.mark.selenium

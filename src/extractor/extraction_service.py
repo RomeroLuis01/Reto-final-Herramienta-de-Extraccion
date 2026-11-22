@@ -67,6 +67,7 @@ class ExtractionService:
         reuse_diagnosis: bool = False,
         use_selenium: bool = True,
         manual_wait: Callable[[], bool] | None = None,
+        manual_retry: Callable[[str, float], bool] | None = None,
     ) -> dict[str, Any]:
         """Ejecuta la extracción y devuelve un resumen sanitizado."""
         if target.auth_mode != "none":
@@ -108,7 +109,7 @@ class ExtractionService:
         if block_reason and manual_wait is not None:
             from src.extractor.manual_session import acquire_manual, manual_eligible
             if manual_eligible(target, effective_diagnosis):
-                manual_batch = acquire_manual(target, self.config, manual_wait)
+                manual_batch = acquire_manual(target, self.config, manual_wait, manual_retry)
                 if not manual_batch.pages:
                     summary["errors"].extend(manual_batch.errors)
                     manual_batch = None

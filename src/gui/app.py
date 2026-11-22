@@ -155,7 +155,9 @@ class ExtractionApp:
                     target, diagnosis=diagnosis, profile=previous, schema_config=schema,
                     strategy=options["strategy"], max_pages=options["max_pages"],
                     max_records=options["max_records"], formats=options["formats"],
-                    use_selenium=options["use_selenium"], manual_wait=manual_wait)
+                    use_selenium=options["use_selenium"], manual_wait=manual_wait,
+                    manual_retry=(lambda message, remaining: self._manual_prompt("retry", message, remaining))
+                    if manual_wait else None)
                 self.messages.put(("text", "\nResultado de extracción:\n" + json.dumps(summary, ensure_ascii=False, indent=2, default=str) + "\n"))
         except Exception as exc:
             self.messages.put(("error", str(exc)))
@@ -168,12 +170,13 @@ class ExtractionApp:
         self.output.see("end")
         self.output.config(state="disabled")
 
-    def _manual_prompt(self, stage: str) -> bool:
+    def _manual_prompt(self, stage: str, feedback: str = "", timeout: float = 300) -> bool:
         """Solicita una decisión al hilo Tk; cancela automáticamente tras cinco minutos."""
         event = threading.Event()
-        request = {"event": event, "answer": False, "stage": stage}
+        request = {"event": event, "answer": False, "stage": stage,
+                   "feedback": feedback, "timeout": max(0, timeout)}
         self.messages.put(("manual_prompt", request))
-        return bool(event.wait(300) and request["answer"])
+        return bool(event.wait(max(0, timeout)) and request["answer"])
 
     def _show_manual_prompt(self, request: dict[str, Any]) -> None:
         dialog = tk.Toplevel(self.root)
@@ -187,8 +190,14 @@ class ExtractionApp:
                     "navegador visible para completar la interacción manualmente? "
                     "La extracción solo continuará si se confirma el acceso autorizado.")
             accept = "Abrir navegador"
+        elif request["stage"] == "retry":
+            text = (request["feedback"] + "\n\nSi necesita completar el formulario, hágalo manualmente en el navegador. "
+                    "Después vuelva a cargar la URL original para comprobar una respuesta nueva, "
+                    "o cancele. La casilla marcada no confirma por sí sola el acceso.")
+            accept = "Comprobar de nuevo"
         else:
             text = ("Completa la verificación o inicio de sesión en el navegador abierto. "
+                    "Si el sitio lo requiere, envía el formulario manualmente. "
                     "Al terminar, permanece en la página solicitada y pulsa Continuar. "
                     "No se resolverá ninguna verificación automáticamente.")
             accept = "Continuar"
@@ -202,7 +211,8 @@ class ExtractionApp:
         ttk.Button(buttons, text=accept, command=lambda: finish(True)).pack(side="left", padx=5)
         ttk.Button(buttons, text="Cancelar", command=lambda: finish(False)).pack(side="left", padx=5)
         dialog.protocol("WM_DELETE_WINDOW", lambda: finish(False))
-        dialog.after(299000, lambda: finish(False) if dialog.winfo_exists() else None)
+        dialog.after(max(1, int(request.get("timeout", 300) * 1000) - 100),
+                     lambda: finish(False) if dialog.winfo_exists() else None)
 
     def _poll(self) -> None:
         try:
