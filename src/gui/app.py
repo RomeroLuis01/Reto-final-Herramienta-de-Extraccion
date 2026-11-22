@@ -11,6 +11,7 @@ from typing import Any
 
 from src.config.settings import get_config, register_target
 from src.extractor.extraction_service import ExtractionService
+from src.extractor.manual_session import manual_eligible
 from src.inspector.web_inspector import WebInspector
 from src.gui.viewers import DatasetViewer, FileViewer
 from src.monitor.logger import setup_logging
@@ -122,11 +123,14 @@ class ExtractionApp:
             reports = DiagnosticReporter(self.config.paths.reports_dir).generate(diagnosis)
             self.messages.put(("text", "Diagnóstico completado.\nPerfil: " + str(profile_path) + "\nReportes: " + ", ".join(map(str, reports.values())) + "\n" + json.dumps(diagnosis, ensure_ascii=False, indent=2, default=str) + "\n"))
             if options["extract"]:
+                manual_wait = None
+                if manual_eligible(target, diagnosis) and self._manual_prompt("consent"):
+                    manual_wait = lambda: self._manual_prompt("continue")
                 summary = ExtractionService(self.config).run(
                     target, diagnosis=diagnosis, profile=previous, schema_config=schema,
                     strategy=options["strategy"], max_pages=options["max_pages"],
                     max_records=options["max_records"], formats=options["formats"],
-                    use_selenium=options["use_selenium"])
+                    use_selenium=options["use_selenium"], manual_wait=manual_wait)
                 self.messages.put(("text", "\nResultado de extracción:\n" + json.dumps(summary, ensure_ascii=False, indent=2, default=str) + "\n"))
         except Exception as exc:
             self.messages.put(("error", str(exc)))
@@ -139,6 +143,42 @@ class ExtractionApp:
         self.output.see("end")
         self.output.config(state="disabled")
 
+    def _manual_prompt(self, stage: str) -> bool:
+        """Solicita una decisión al hilo Tk; cancela automáticamente tras cinco minutos."""
+        event = threading.Event()
+        request = {"event": event, "answer": False, "stage": stage}
+        self.messages.put(("manual_prompt", request))
+        return bool(event.wait(300) and request["answer"])
+
+    def _show_manual_prompt(self, request: dict[str, Any]) -> None:
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Verificación manual")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        frame = ttk.Frame(dialog, padding=18)
+        frame.pack(fill="both", expand=True)
+        if request["stage"] == "consent":
+            text = ("Se detectó una verificación o inicio de sesión. ¿Deseas abrir un "
+                    "navegador visible para completar la interacción manualmente? "
+                    "La extracción solo continuará si se confirma el acceso autorizado.")
+            accept = "Abrir navegador"
+        else:
+            text = ("Completa la verificación o inicio de sesión en el navegador abierto. "
+                    "Al terminar, vuelve a cargar manualmente la página solicitada y pulsa Continuar. "
+                    "No se resolverá ninguna verificación automáticamente.")
+            accept = "Continuar"
+        ttk.Label(frame, text=text, wraplength=460).pack(pady=(0, 12))
+        buttons = ttk.Frame(frame)
+        buttons.pack()
+        def finish(answer: bool) -> None:
+            request["answer"] = answer
+            request["event"].set()
+            dialog.destroy()
+        ttk.Button(buttons, text=accept, command=lambda: finish(True)).pack(side="left", padx=5)
+        ttk.Button(buttons, text="Cancelar", command=lambda: finish(False)).pack(side="left", padx=5)
+        dialog.protocol("WM_DELETE_WINDOW", lambda: finish(False))
+        dialog.after(299000, lambda: finish(False) if dialog.winfo_exists() else None)
+
     def _poll(self) -> None:
         try:
             while True:
@@ -148,6 +188,8 @@ class ExtractionApp:
                 elif kind == "error":
                     self._append("\nError: " + value + "\n")
                     messagebox.showerror("Error", value, parent=self.root)
+                elif kind == "manual_prompt":
+                    self._show_manual_prompt(value)
                 elif kind == "done":
                     self.status.set("Listo")
                     self.diagnose_button.config(state="normal")

@@ -20,7 +20,7 @@ import re
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from src.config.settings import AnalysisTarget, ProjectConfig, get_config
 from src.extractor.base import ExtractionBatch, ExtractorFactory
@@ -66,6 +66,7 @@ class ExtractionService:
         profile: dict[str, Any] | None = None,
         reuse_diagnosis: bool = False,
         use_selenium: bool = True,
+        manual_wait: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
         """Ejecuta la extracción y devuelve un resumen sanitizado."""
         if target.auth_mode != "none":
@@ -103,7 +104,15 @@ class ExtractionService:
         )
 
         block_reason = self._block_reason(target, effective_diagnosis)
-        if block_reason:
+        manual_batch = None
+        if block_reason and manual_wait is not None:
+            from src.extractor.manual_session import acquire_manual, manual_eligible
+            if manual_eligible(target, effective_diagnosis):
+                manual_batch = acquire_manual(target, self.config, manual_wait)
+                if not manual_batch.pages:
+                    summary["errors"].extend(manual_batch.errors)
+                    manual_batch = None
+        if block_reason and manual_batch is None:
             summary["status"] = "blocked"
             summary["finished_at"] = datetime.now().isoformat(timespec="seconds")
             summary["errors"].append(block_reason)
@@ -111,6 +120,9 @@ class ExtractionService:
             logger.warning("Extracción cancelada: %s", block_reason)
             self._write_report(summary)
             return summary
+        if manual_batch is not None:
+            summary["access_status"] = "verificado_manual"
+            summary["manual_verification"] = True
 
         rules = dict(target.extraction_rules or {})
         max_pages = max(1, int(max_pages or self.config.extraction.max_pages))
@@ -151,7 +163,7 @@ class ExtractionService:
         )
 
         # ---- M3: adquisición ----
-        batch = self._acquire(target, effective_diagnosis, extraction_config, strategy)
+        batch = manual_batch or self._acquire(target, effective_diagnosis, extraction_config, strategy)
         strategy_used = batch.method
         summary["extraction_config"]["strategy"] = strategy_used
         summary["pages"] = batch.to_dict()["pages"]
@@ -437,6 +449,8 @@ class ExtractionService:
     ) -> str | None:
         """Devuelve el motivo ético/robots por el que no debe extraerse."""
         protection = diagnosis.get("protection") or {}
+        if protection.get("auth_required"):
+            return "Extracción detenida: el sitio requiere autenticación autorizada."
         if self._barrier_active(diagnosis):
             restrictions = protection.get("restrictions") or []
             detail = "; ".join(str(r) for r in restrictions) if restrictions else ""

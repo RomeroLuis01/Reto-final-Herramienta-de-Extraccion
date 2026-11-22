@@ -1,0 +1,208 @@
+"""Interacción humana simulada; no se contactan sitios públicos."""
+import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from src.config.settings import ProjectConfig, register_target
+from src.extractor.manual_session import acquire_manual, manual_eligible
+from src.extractor.base import ExtractionBatch, PageSnapshot
+from src.extractor.extraction_service import ExtractionService
+
+
+def diagnosis(status=403, challenge=True, robots=True, **protection):
+    return {"http": {"status_code": status, "security_headers": {"Cf-Mitigated": "challenge" if challenge else ""}},
+            "protection": {"robots_crawl_allowed": robots, "blocking_barrier": True, **protection},
+            "viability": {"blocked_by_barrier": True}, "access_status": "restringido_http_403"}
+
+
+@pytest.mark.parametrize("diagnosis_value,expected", [
+    (diagnosis(), True), (diagnosis(challenge=False), False),
+    (diagnosis(robots=False), False), (diagnosis(status=429), False),
+    (diagnosis(status=503), False), (diagnosis(ssrf_blocked=True), False),
+    (diagnosis(rate_limiting=True), False),
+    (diagnosis(status=401, challenge=False, auth_required=True), True),
+])
+def test_eligibility(diagnosis_value, expected):
+    assert manual_eligible(register_target("https://example.com/data"), diagnosis_value) is expected
+
+
+def performance(status=200, url="https://example.com/data", headers=None):
+    return {"message": json.dumps({"message": {"method": "Network.responseReceived", "params": {
+        "type": "Document", "frameId": "main", "response": {"url": url, "status": status, "headers": headers or {}}}}})}
+
+
+def prepare_dom(status=200, url="https://example.com/data"):
+    dom = MagicMock()
+    driver = dom._driver
+    driver.current_url = url
+    driver.page_source = "<html><body><article>Dato autorizado</article></body></html>"
+    driver.find_element.return_value.text = "Dato autorizado"
+    driver.find_elements.return_value = []
+    driver.execute_cdp_cmd.return_value = {"frameTree": {"frame": {"id": "main"}}}
+    driver.get_log.side_effect = [[], [performance(status, url)]]
+    return dom
+
+
+def acquire(dom, callback=lambda: True):
+    target = register_target("https://example.com/data")
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.HtmlAnalyzer") as analyzer:
+        cls.return_value.__enter__.return_value = dom
+        analyzer.return_value.analyze.return_value = {}
+        result = acquire_manual(target, ProjectConfig(), callback)
+        assert cls.call_args.args[0].headless is False
+        return result
+
+
+def test_manual_success_uses_same_browser_and_captures_verified_document():
+    dom = prepare_dom()
+    result = acquire(dom)
+    assert result.pages[0].status_code == 200
+    assert result.pages[0].html == dom._driver.page_source
+    dom._driver.get.assert_called_once_with("https://example.com/data")
+    assert dom._driver.get_log.call_count == 2
+
+
+def test_cancel_does_not_extract():
+    dom = prepare_dom()
+    result = acquire(dom, lambda: False)
+    assert not result.pages and "cancelada" in result.errors[0]
+
+
+@pytest.mark.parametrize("status", [403, 429, 503])
+def test_failed_http_cannot_continue(status):
+    assert not acquire(prepare_dom(status)).pages
+
+
+def test_unknown_status_and_wrong_origin_cannot_continue():
+    dom = prepare_dom()
+    dom._driver.get_log.side_effect = [[], []]
+    assert not acquire(dom).pages
+    assert not acquire(prepare_dom(url="https://other.example/data")).pages
+
+
+def test_http_200_with_challenge_header_is_not_success():
+    dom = prepare_dom()
+    dom._driver.get_log.side_effect = [[], [performance(200, headers={"Cf-Mitigated": "challenge"})]]
+    assert not acquire(dom).pages
+
+
+def test_challenge_remaining_cannot_continue():
+    dom = prepare_dom()
+    dom._driver.find_elements.return_value = [object()]
+    assert not acquire(dom).pages
+
+
+def test_dom_check_failure_is_not_treated_as_clear():
+    dom = prepare_dom()
+    dom._driver.find_elements.side_effect = RuntimeError("falló lectura")
+    assert not acquire(dom).pages
+
+
+def test_service_runs_pipeline_on_verified_manual_snapshot(tmp_path):
+    from src.config.settings import PathConfig
+    target = register_target("https://example.com/data")
+    config = ProjectConfig(paths=PathConfig(base_dir=tmp_path))
+    html = "<main><article><p>Uno</p></article><article><p>Dos</p></article></main>"
+    batch = ExtractionBatch(method="selenium_manual", pages=[PageSnapshot(
+        url=target.url, html=html, final_url=target.url, method="selenium_manual", status_code=200)])
+    with patch("src.extractor.manual_session.acquire_manual", return_value=batch) as manual, \
+         patch.object(ExtractionService, "_acquire", side_effect=AssertionError("no debe abrir otra sesión")):
+        result = ExtractionService(config).run(target, diagnosis=diagnosis(), manual_wait=lambda: True,
+                                               formats=["json"], max_pages=1)
+    assert result["status"] == "ok"
+    assert result["manual_verification"] is True
+    assert result["raw_records"] == 2
+    manual.assert_called_once()
+
+
+@pytest.mark.parametrize("diag", [diagnosis(challenge=False), diagnosis(robots=False), diagnosis(status=429)])
+def test_service_never_opens_manual_session_for_hard_barriers(tmp_path, diag):
+    from src.config.settings import PathConfig
+    target = register_target("https://example.com/data")
+    with patch("src.extractor.manual_session.acquire_manual") as manual:
+        result = ExtractionService(ProjectConfig(paths=PathConfig(base_dir=tmp_path))).run(
+            target, diagnosis=diag, manual_wait=lambda: True)
+    assert result["status"] == "blocked"
+    manual.assert_not_called()
+
+
+def test_service_cancel_stays_blocked(tmp_path):
+    from src.config.settings import PathConfig
+    target = register_target("https://example.com/data")
+    batch = ExtractionBatch(method="selenium_manual", errors=["Verificación manual cancelada."])
+    with patch("src.extractor.manual_session.acquire_manual", return_value=batch):
+        result = ExtractionService(ProjectConfig(paths=PathConfig(base_dir=tmp_path))).run(
+            target, diagnosis=diagnosis(), manual_wait=lambda: False)
+    assert result["status"] == "blocked"
+    assert any("cancelada" in message for message in result["errors"])
+
+
+@pytest.mark.selenium
+@pytest.mark.parametrize("resolve,expected", [(True, "ok"), (False, "blocked")])
+def test_manual_chrome_local_real_session(tmp_path, monkeypatch, resolve, expected):
+    """Una navegación local simulada representa la recarga que hace la persona."""
+    from src.config.settings import PathConfig
+    from src.inspector.dom_inspector import DomInspector
+
+    state = {"resolved": False, "requests": 0, "cookie_reused": False}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            state["requests"] += 1
+            cookie = self.headers.get("Cookie", "")
+            state["cookie_reused"] |= "manual_test_session=present" in cookie
+            if state["resolved"] and state["cookie_reused"]:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"<html><body><main><article><p>Dato autorizado</p></article></main></body></html>")
+            else:
+                self.send_response(403)
+                self.send_header("Cf-Mitigated", "challenge")
+                self.send_header("Set-Cookie", "manual_test_session=present; Path=/; HttpOnly")
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"<html><body><div id='challenge-form'>Verificacion</div></body></html>")
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    target = register_target(f"http://127.0.0.1:{server.server_port}/data", allow_private_network=True)
+    active = {}
+
+    class ObservableDom(DomInspector):
+        def __enter__(self):
+            active["dom"] = super().__enter__()
+            return active["dom"]
+
+    monkeypatch.setattr("src.extractor.manual_session.DomInspector", ObservableDom)
+
+    def simulate_user():
+        state["resolved"] = resolve
+        active["dom"]._driver.get(target.url)
+        return True
+
+    try:
+        config = ProjectConfig(paths=PathConfig(base_dir=tmp_path))
+        result = ExtractionService(config).run(target, diagnosis=diagnosis(),
+                                               manual_wait=simulate_user, formats=["json"], max_pages=1)
+        assert result["status"] == expected, result.get("errors")
+        if resolve:
+            assert result["raw_records"] == 1
+            assert result["pages"][0]["status_code"] == 200
+            assert result["pages"][0]["method"] == "selenium_manual"
+        else:
+            assert result["outputs"] == {}
+        assert state["requests"] >= 2
+        assert state["cookie_reused"]
+        assert "manual_test_session" not in str(result)
+    finally:
+        server.shutdown()
+        server.server_close()
