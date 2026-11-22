@@ -1,8 +1,8 @@
 # Herramienta de Extracción Inteligente y Automatizada de Información Web
 
-**Estado:** Avance 1 (diagnóstico y perfilamiento) + **Avance 2 (extracción, selección, transformación/calidad y almacenamiento)**.
+**Estado:** diagnóstico, extracción, selección, transformación, almacenamiento y comparación de perfiles; consulte las limitaciones y pruebas descritas abajo.
 
-El Avance 2 convierte los módulos 3 a 6 en componentes funcionales y los conecta al diagnóstico ya implementado en el Avance 1. La herramienta es modular, reutilizable, respeta `robots.txt` y barreras técnicas, y conserva datos originales y procesados por separado.
+La herramienta conecta módulos de diagnóstico y extracción, permite respetar `robots.txt` y conserva datos originales y procesados por separado. La detección de un mecanismo no garantiza que se pueda extraer mediante él ni que los resultados sean completos.
 
 ## Estructura del proyecto
 
@@ -57,8 +57,9 @@ en el entorno (o en `.env`, que no debe compartirse). Active explícitamente
 correspondiente. Las credenciales no se pasan como argumentos ni se guardan en
 los reportes. Use HTTPS fuera de pruebas locales.
 
-El modo autenticado solo admite `requests` y API; Selenium y formularios de
-inicio de sesión no están soportados. Se realiza un diagnóstico nuevo y se
+La autenticación HTTP configurada por credenciales solo admite `requests` y API;
+no se aplica a Selenium. Un formulario identificado puede requerir la interacción
+manual descrita arriba. Se realiza un diagnóstico nuevo y se
 bloquean destinos o redirecciones de otro origen para no transmitir cabeceras
 ni cookies de sesión fuera del sitio. Se sigue consultando `robots.txt` sin
 credenciales y se mantienen los bloqueos por CAPTCHA y respuestas restrictivas.
@@ -124,14 +125,14 @@ Para una URL que devuelve JSON directamente, `--strategy api` o la selección au
 ## Flujo implementado (Avance 2)
 
 1. **Diagnóstico reutilizable (M1/M2):** se ejecuta o se recupera del perfil.
-2. **Barreras:** antes de cualquier petición se revisan CAPTCHA, autenticación, HTTP 401/403/429/503, SSRF y `robots.txt`.
+2. **Barreras:** el diagnóstico y los extractores revisan las restricciones detectadas, incluidas CAPTCHA, autenticación, respuestas restrictivas, SSRF y `robots.txt` según la configuración.
 3. **Adquisición (M3):** el motor recomendado obtiene hasta `max_pages` páginas con pausa configurable y redirecciones validadas.
 4. **Selección (M4):** el esquema declarativo (explícito o inferido) convierte cada página en registros crudos.
 5. **Transformación (M5):** limpieza → normalización → validación → deduplicación → linaje.
 6. **Calidad:** se generan métricas de registros válidos/incompletos, duplicados y completitud por campo.
 7. **Almacenamiento (M6):** `<dominio>_raw_*` y `<dominio>_processed_*` separados en cada formato solicitado.
 8. **Reporte (M7):** JSON sanitizado + TXT legible con estrategia, esquema, páginas, calidad, linaje y archivos.
-9. **Trazabilidad:** cada registro procesado incluye `_lineage` con siete atributos obligatorios.
+9. **Trazabilidad:** cada registro procesado incluye `_lineage` y `_field_lineage` con procedencia y resultados por campo.
 
 Si ningún registro coincide con el esquema, la ejecución se informa como error y
 recomienda revisar los selectores. En modo automático, si Selenium no consigue
@@ -150,22 +151,25 @@ Cada registro en `*_processed_*` conserva:
 - `applied_transformations`
 - `execution_id`
 
-Los registros `*_raw_*` conservan `_source` y `_field_meta` sin transformar, para permitir comparación y auditoría.
+Cada registro procesado también incluye `_field_lineage`, con URL, fecha de adquisición, método, ejecución, nombre del campo, página, selector, tipo y atributo. Contiene el estado de validación de cada campo y las operaciones aplicadas; `no_evaluado` indica que no hubo una validación individual. En CSV y otros formatos tabulares, los objetos anidados se serializan como texto. Los registros `*_raw_*` conservan `_source` y `_field_meta` sin transformar para comparación y auditoría.
 
-## Mecanismos de adquisición y escenarios validados
+## Mecanismos y alcance
 
-| # | Mecanismo | Motor | Escenario de validación |
-|---|---|---|---|
-| 1 | HTML estático + paginación clásica | `requests` + BeautifulSoup | `https://books.toscrape.com` y servidor local con `rel="next"` |
-| 2 | Datos estructurados JSON/XML/CSV | `requests` + parser integrado | respuestas locales JSON y endpoints públicos |
-| 3 | DOM renderizado / scroll infinito / cargar más | `Selenium` | `https://quotes.toscrape.com/js/`, `/scroll` y DOM simulado en pruebas |
-| 4 | API REST/JSON paginada | `api` | `https://api.spacexdata.com/v4/launches` y API local mockeada |
+| Mecanismo | Detección y extracción disponibles |
+|---|---|
+| HTML estático y paginación por enlaces | `requests` obtiene HTML y puede seguir un enlace siguiente. |
+| JSON, CSV y XML | `requests` interpreta respuestas estructuradas; la inferencia XML es conservadora y no cubre todas las estructuras o espacios de nombres. |
+| DOM renderizado, scroll y botón de carga | Selenium captura el DOM y puede avanzar mediante scroll, selector de botón o enlace siguiente. |
+| REST/JSON | El motor API consulta la URL objetivo o endpoints configurados explícitamente, con paginación limitada cuando se configura. |
+| XHR/Fetch, GraphQL y WebSocket | El diagnóstico puede detectar indicios o peticiones observadas; eso no implica soporte general de extracción mediante esos protocolos. |
 
-Se cubren además cinco escenarios de control: página estática paginada, página dinámica, API paginada, `robots.txt` desfavorable y barrera CAPTCHA/403 simulada. Las pruebas automatizadas usan `127.0.0.1` con `allow_private_network=True` **solo en pruebas controladas**.
+Las pruebas incluyen servidores locales controlados, pruebas de componentes con Selenium simulado y algunas pruebas de Chrome. No se presentan los servidores locales como sitios públicos diferentes ni se da por demostrada la extracción de todos los mecanismos y sitios del criterio de aceptación. Un endpoint observado no se considera autorizado; los perfiles anteriores que lo etiquetaban como autorizado lo conservan como dato de autorización no verificada.
+
+`max_pages` limita páginas o capturas, no garantiza cobertura completa. En scroll y botones, las capturas pueden acumular registros repetidos: el límite de registros se aplica antes de deduplicar, por lo que puede quedar reducido el número final de registros únicos. Los reportes indican mecanismo, motivo de parada y advertencias; si se detecta un botón sin selector configurado, no se pulsa automáticamente. En uso programático, `extraction_rules` acepta `load_more_selector` e `infinite_scroll`. El modo de verificación manual captura una sola página y no continúa automáticamente.
 
 ## Seguridad y ética
 
-- Anti-SSRF en cada petición y redirección; se rechazan loopback, privadas, link-local, metadatos y DNS interno salvo habilitación explícita en pruebas.
+- Se validan destinos y redirecciones HTTP; Selenium valida antes y después de navegar, pero no intercepta cada redirección antes de que el navegador la solicite. Se rechazan destinos privados salvo habilitación explícita en pruebas.
 - Sanitización centralizada de URLs, cabeceras y estructuras antes de logs, perfiles y reportes.
 - Límite de tamaño de respuesta, reintentos, pausa entre páginas y máximo de registros para evitar cargas excesivas.
 - **No se eluden** CAPTCHAs, autenticaciones, controles de acceso ni restricciones de `robots.txt`. Ante una barrera, la ejecución se detiene y se reporta.
@@ -179,15 +183,23 @@ python -m pytest -q tests/test_extraction_avance2.py
 python -m pytest tests/ -m "not integration and not selenium" -v
 ```
 
-El conjunto incluye 146 pruebas: 130 del Avance 1 y 16 nuevas del Avance 2 (extractores, esquemas CSS/XPath/regex/JSONPath, transformación/linaje, almacenamiento, integración local, barreras y reportes).
+Las pruebas abarcan extractores, selección, linaje, almacenamiento, servidores locales, barreras y reportes. Las marcadas `selenium` requieren Chrome compatible; los resultados dependen del entorno disponible.
 
 ### Interfaz gráfica
 
 El menú **Sitio de prueba** permite seleccionar LeetCode, NASA, Books to Scrape
 o Quotes to Scrape con JavaScript. La URL también se puede escribir o editar.
 
-Ejecute `python gui.py`. La ventana permite diagnosticar, configurar y ejecutar
-extracciones; consulte [el manual](docs/manual_usuario.md) para más detalles.
+Ejecute `python gui.py`. La ventana permite diagnosticar, configurar límites y formatos, ejecutar extracciones y abrir reportes, logs y datos.
+
+Para elegir información sin crear un archivo, pulse **Configurar sección y campos…**. Introduzca un selector CSS que identifique los contenedores de registros; para datos estructurados, use una ruta o déjelo vacío para la raíz. Escriba un campo por línea con el formato `nombre; selector; tipo; atributo`. Por ejemplo:
+
+```text
+titulo; h2; css; text
+enlace; a; css; href
+```
+
+El tipo y el atributo son opcionales: sus valores por defecto son `css` y `text`. Para JSON/CSV/XML, use `json_path` y nombres o rutas de campos. Pulse **Guardar selección**; la interfaz valida los campos, aunque no verifica que los selectores coincidan con el sitio hasta extraer. **Usar selección automática** limpia esta configuración. Como alternativa, seleccione un archivo en **Esquema JSON**; no combine archivo y selección manual. La inferencia automática intenta descartar navegación, pero revise siempre que la sección y los resultados correspondan a lo deseado.
 
 ## Bases de datos externas
 
@@ -223,7 +235,7 @@ docker compose down
 
 Las imágenes inicializan usuarios y contraseñas solo cuando el volumen está vacío: editar las variables después de la primera inicialización no cambia las credenciales ya guardadas. `docker compose down -v` elimina los volúmenes y sus datos, así que no lo use si desea conservarlos. Si su entorno usa servidores externos, puede dejar los contenedores apagados y configurar sus URI directamente.
 
-Desde `python gui.py`, los botones **Ver reportes** y **Ver logs** permiten explorar los archivos generados en vistas organizadas por secciones o por eventos. Consulte el manual para más detalles.
+Desde `python gui.py`, los botones **Ver reportes** y **Ver logs** permiten explorar los archivos generados en vistas organizadas por secciones o por eventos.
 
 En **Ver datos**, el botón **Renombrar columnas** permite asignar nombres visibles cuando la fuente no proporciona encabezados. Los nombres se guardan localmente para el conjunto y tabla seleccionados; no modifican los datos ni sus campos originales. Use **Restablecer originales** para volver a los nombres guardados en el dataset.
 
