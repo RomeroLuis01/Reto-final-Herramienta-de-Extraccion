@@ -296,3 +296,30 @@ def test_legacy_endpoint_labels_are_not_treated_as_authorization(tmp_path):
     assert stored["legacy_endpoints_unverified"] == legacy["authorized_endpoints"]
     assert stored["authorized_endpoints"] == []
     assert not stored["diagnosis_changes"]["authorized_endpoints"]["available"]
+
+
+def test_configured_extraction_endpoints_are_compared_separately_and_sanitized(tmp_path):
+    manager = ProfileManager(tmp_path)
+    url = "https://example.com"
+    schema = {"fields": [{"name": "id", "selector": "id"}]}
+    old = "https://user:password@example.com/old?token=secret"
+    new = "https://example.com/new"
+    manager.save_extraction(url, schema, [{"id": 1}], [], "one", [old])
+    changes = manager.save_extraction(url, schema, [{"id": 2}], [], "two", [new])
+    assert changes["configured_endpoints"]["added"] == [new]
+    assert len(changes["configured_endpoints"]["removed"]) == 1
+    profile = manager.load(url)
+    assert profile["extraction_snapshot"]["configured_endpoints"] == [new]
+    assert not profile.get("authorized_endpoints")
+    stored = (tmp_path / "example_com.json").read_text(encoding="utf-8")
+    assert "password" not in stored and "secret" not in stored
+
+
+def test_missing_legacy_configured_endpoints_is_unknown(tmp_path):
+    manager = ProfileManager(tmp_path)
+    url = "https://example.com"
+    manager.save_extraction(url, {}, [], [], "one")
+    changes = manager.save_extraction(url, {}, [], [], "two", [])
+    assert changes["configured_endpoints"] == {"available": False}
+    changes = manager.save_extraction(url, {}, [], [], "three", [])
+    assert changes["configured_endpoints"] == {"available": True, "added": [], "removed": []}

@@ -808,3 +808,22 @@ def test_dynamic_coverage_is_in_summary_and_text_report(local_server, tmp_path):
     report = Path(summary["report_files"]["txt"]).read_text(encoding="utf-8")
     assert "límite de capturas alcanzado" in report
     assert "no demuestran" in report
+
+
+def test_extraction_profile_tracks_only_explicit_endpoints(local_server, tmp_path):
+    from src.config.settings import PathConfig
+    config = ProjectConfig(paths=PathConfig(base_dir=tmp_path))
+    target = AnalysisTarget(url=f"{local_server}/", allow_private_network=True,
+                            extraction_rules={"api_endpoints": ["https://example.com/allowed?token=secret"]})
+    diagnosis = _diagnosis(target.url)
+    diagnosis["network"]["endpoints_observed"] = ["https://example.com/observed"]
+    service = ExtractionService(config)
+    result = service.run(target, diagnosis=diagnosis, schema_config=SCHEMA_CONFIG,
+                         strategy="requests", max_pages=1, delay_s=0, formats=["json"])
+    assert result["status"] == "ok", result["errors"]
+    profile = service.profiles.load(target.url)
+    configured = profile["extraction_snapshot"]["configured_endpoints"]
+    assert len(configured) == 1 and "/allowed" in configured[0]
+    assert "secret" not in str(configured)
+    assert "observed" not in str(configured)
+    assert not profile.get("authorized_endpoints")

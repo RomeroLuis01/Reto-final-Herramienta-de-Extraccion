@@ -191,7 +191,8 @@ class ProfileManager:
 
     def save_extraction(self, url: str, schema: dict[str, Any],
                         records: list[dict[str, Any]], json_pages: list[Any],
-                        execution_id: str) -> dict[str, Any]:
+                        execution_id: str,
+                        configured_endpoints: list[str] | None = None) -> dict[str, Any]:
         """Guarda la instantánea y devuelve diferencias frente a la extracción anterior."""
         safe_url = sanitize_url(url)
         domain = self._domain_key(safe_url)
@@ -209,11 +210,15 @@ class ProfileManager:
             "json_structure": sorted(set().union(*(self._json_paths(page) for page in json_pages)))
                               if json_pages else None,
             "record_count": len(records),
+            # None conserva la diferencia entre una ejecución antigua y una
+            # configuración conocida sin endpoints declarados.
+            "configured_endpoints": (sorted({sanitize_url(str(endpoint)) for endpoint in configured_endpoints})
+                                     if configured_endpoints is not None else None),
         }
         previous = profile.get("extraction_snapshot")
         changes: dict[str, Any] = {"baseline_available": bool(previous)}
         if previous:
-            for key in ("fields", "selectors", "base_selector", "columns", "json_structure"):
+            for key in ("fields", "selectors", "base_selector", "columns", "json_structure", "configured_endpoints"):
                 changes[key] = self._changes(previous.get(key), snapshot.get(key))
             old_count = previous.get("record_count")
             changes["record_count"] = ({"available": True, "previous": old_count,

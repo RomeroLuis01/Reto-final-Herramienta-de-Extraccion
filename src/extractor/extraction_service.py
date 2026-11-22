@@ -300,6 +300,10 @@ class ExtractionService:
                 [page.data for page in batch.pages
                  if page.content_format in ("json", "api") and page.data is not None],
                 execution_id,
+                configured_endpoints=(
+                    [rules["api_endpoints"]] if isinstance(rules.get("api_endpoints"), str)
+                    else list(rules.get("api_endpoints") or [])
+                ),
             )
         except (OSError, ValueError, TypeError) as exc:
             summary["errors"].append(f"No se pudo guardar el perfil de cambios: {exc}")
