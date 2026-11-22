@@ -367,7 +367,7 @@ class ExtractionService:
             remaining = max_records - len(records)
             if remaining <= 0:
                 break
-            source = page.data if page.content_format in ("json", "api") else page.html
+            source = page.data if page.content_format in ("json", "api", "csv", "xml") else page.html
             page_records = schema.apply(
                 source,
                 content_format=page.content_format,

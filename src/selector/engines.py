@@ -101,7 +101,7 @@ def extract_field_values(
     Returns:
         Lista de valores encontrados (vacía si no hay coincidencias).
     """
-    if content_format in ("json", "api") or field.selector_type == "json_path":
+    if content_format in ("json", "api", "csv", "xml") or field.selector_type == "json_path":
         values = json_lookup(source, field.selector)
         return [v for v in values if v is not None]
 
@@ -154,8 +154,10 @@ def select_containers(
 ) -> list[Any]:
     """Selecciona los contenedores de registros (base_selector)."""
     if not selector or selector in ("$", "root"):
+        if content_format in ("json", "api", "csv", "xml") and isinstance(source, list):
+            return source
         return [source]
-    if content_format in ("json", "api"):
+    if content_format in ("json", "api", "csv", "xml"):
         found = json_lookup(source, selector)
         containers: list[Any] = []
         for item in found:

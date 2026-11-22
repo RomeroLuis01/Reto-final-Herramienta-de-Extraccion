@@ -68,7 +68,28 @@ def parse_body(body: str, content_format: str) -> Any:
     if content_format == "xml":
         try:
             root = ET.fromstring(body)
-            return [elem.attrib for elem in root] if len(root) else root.attrib
+            def convert(element: Any) -> Any:
+                result: dict[str, Any] = dict(element.attrib)
+                for child in element:
+                    value = convert(child)
+                    if child.tag in result:
+                        existing = result[child.tag]
+                        if not isinstance(existing, list):
+                            result[child.tag] = [existing]
+                        result[child.tag].append(value)
+                    else:
+                        result[child.tag] = value
+                text = (element.text or "").strip()
+                if not result:
+                    return text
+                if text:
+                    result["#text"] = text
+                return result
+
+            children = list(root)
+            if children and len({child.tag for child in children}) == 1:
+                return [convert(child) for child in children]
+            return convert(root)
         except ET.ParseError as exc:
             logger.warning("XML inválido en la respuesta: %s", exc)
             return None

@@ -67,7 +67,7 @@ class SchemaBuilder:
             return schema
 
         content_format = self._content_format()
-        if content_format in ("json", "api"):
+        if content_format in ("json", "api", "csv", "xml"):
             schema = self._build_json_schema()
         else:
             schema = self._build_html_schema()
