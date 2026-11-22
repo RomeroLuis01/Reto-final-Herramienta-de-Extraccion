@@ -92,3 +92,12 @@ def test_repeated_rows_duplicate_semantic_labels_do_not_overwrite_fields():
     assert [field.name for field in schema.fields] == ["titulo", "enlace", "titulo_2", "titulo_3"]
     records = schema.apply(html, base_url="https://example.com")
     assert [record["titulo_3"] for record in records] == ["Otro", "Más"]
+
+
+def test_custom_components_exclude_role_navigation():
+    html = """<div role="navigation"><product-card><a href="/menu">Menú</a></product-card></div>
+    <main><product-card><a href="/one">Uno</a></product-card>
+    <product-card><a href="/two">Dos</a></product-card></main>"""
+    schema = SchemaBuilder(sample_page=PageSnapshot(url="https://example.com", html=html)).build()
+    records = schema.apply(html, base_url="https://example.com")
+    assert [row["titulo"] for row in records] == ["Uno", "Dos"]

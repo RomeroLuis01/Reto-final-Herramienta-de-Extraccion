@@ -37,3 +37,17 @@ def test_missing_header_uses_actual_cell_tag_without_duplicate_names():
       <tbody><tr><th>Primero</th><td>Segundo</td></tr></tbody></table>""")
     assert [field.name for field in schema.fields] == ["td_2", "td_2_2"]
     assert records == [{"td_2": "Primero", "td_2_2": "Segundo"}]
+
+
+def test_navigation_table_does_not_contaminate_selected_table():
+    schema, records = extract("""<nav><table><tr><td>Menú</td><td>Inicio</td></tr></table></nav>
+    <main><table><tr><th>Producto</th><th>Precio</th></tr>
+    <tr><td>Libro</td><td>20</td></tr><tr><td>Lápiz</td><td>5</td></tr></table></main>""")
+    assert records == [{"producto": "Libro", "precio": "20"}, {"producto": "Lápiz", "precio": "5"}]
+
+
+def test_navigation_only_table_is_not_inferred():
+    import pytest
+    from src.selector.builder import SchemaBuildError
+    with pytest.raises(SchemaBuildError):
+        extract('<div role="navigation"><table><tr><td>Inicio</td></tr></table></div>')

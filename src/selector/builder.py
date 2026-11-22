@@ -125,7 +125,12 @@ class SchemaBuilder:
             except Exception:
                 continue
             for table in tables:
-                schema = self._schema_from_table(table, table_selector)
+                if self._is_navigation(table):
+                    continue
+                # Si el selector coincide con varias tablas, limitar la base a
+                # la tabla inspeccionada para no mezclar menús u otras secciones.
+                selected_table = self._element_path(table) if len(tables) > 1 else table_selector
+                schema = self._schema_from_table(table, selected_table)
                 if schema:
                     return schema
 
@@ -138,7 +143,8 @@ class SchemaBuilder:
                 continue
             nodes = [node for node in all_nodes if not self._is_navigation(node)]
             if len(nodes) != len(all_nodes):
-                selector = f":is({selector}):not(nav *, header *, footer *, aside *, [role='navigation'] *)"
+                selector = (f":is({selector}):not(nav, header, footer, aside, [role='navigation'], "
+                            "nav *, header *, footer *, aside *, [role='navigation'] *)")
             schema = self._schema_from_generic(nodes, selector)
             score = len(schema.fields) * 10 + min(len(nodes), 20)
             if schema.fields and score > best_score:
@@ -160,12 +166,14 @@ class SchemaBuilder:
             if re.fullmatch(r"[a-z][a-z0-9]*-[a-z0-9-]+", node.name or "")
         })
         for tag in custom_tags:
-            nodes = soup.find_all(tag)
-            if len(nodes) < 2 or any(
-                node.find_parent(["nav", "header", "footer", "aside"])
-                for node in nodes
-            ):
+            all_nodes = soup.find_all(tag)
+            nodes = [node for node in all_nodes if not self._is_navigation(node)]
+            if len(nodes) < 2:
                 continue
+            base_selector = tag
+            if len(nodes) != len(all_nodes):
+                base_selector = (f":is({tag}):not(nav, header, footer, aside, [role='navigation'], "
+                                 "nav *, header *, footer *, aside *, [role='navigation'] *)")
             groups: dict[int, list[Any]] = {}
             for node in nodes:
                 groups.setdefault(id(node.parent), []).append(node)
@@ -185,7 +193,7 @@ class SchemaBuilder:
             schema = ExtractionSchema(
                 name=f"automatico_{tag}",
                 description="Esquema inferido de componentes web repetidos",
-                base_selector=tag,
+                base_selector=base_selector,
                 fields=[
                     FieldSelector("titulo", "a[href]", attribute="text"),
                     FieldSelector("enlace", "a[href]", attribute="href"),
@@ -211,7 +219,9 @@ class SchemaBuilder:
 
     @staticmethod
     def _is_navigation(node: Any) -> bool:
-        return bool(node.find_parent(["nav", "header", "footer", "aside"]) or
+        return bool(getattr(node, "name", None) in ("nav", "header", "footer", "aside") or
+                    node.get("role") == "navigation" or
+                    node.find_parent(["nav", "header", "footer", "aside"]) or
                     node.find_parent(attrs={"role": "navigation"}))
 
     @staticmethod
