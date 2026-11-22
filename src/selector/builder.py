@@ -230,19 +230,36 @@ class SchemaBuilder:
         for parent in soup.find_all(True):
             if parent.name in ("nav", "header", "footer", "aside") or cls._is_navigation(parent):
                 continue
-            groups: dict[tuple[str, str], list[Any]] = {}
-            for child in parent.find_all("div", recursive=False):
+            groups: list[tuple[str, list[Any]]] = []
+            current: list[Any] = []
+            signature: tuple[Any, ...] | None = None
+            # Solo agrupar secuencias contiguas de hermanos estructuralmente
+            # compatibles; una cabecera u otro elemento corta la secuencia.
+            for child in parent.find_all(recursive=False):
                 role = str(child.get("role") or "")
-                if role and role != "row":
-                    continue
-                classes = " ".join(child.get("class", []))
-                # Las filas semánticas pueden alternar colores o clases CSS.
-                groups.setdefault((role, "" if role == "row" else classes), []).append(child)
-            for (role, classes), nodes in groups.items():
+                link = next((a for a in child.find_all("a", href=True)
+                             if a.get_text(" ", strip=True)), None)
+                cells = child.find_all(recursive=False)
+                if child.name == "div" and role in ("", "row") and link and len(cells) >= 3:
+                    next_signature = (role, tuple((cell.name, cell.get("data-field")) for cell in cells),
+                                      cls._element_path(link, child))
+                else:
+                    next_signature = None
+                if next_signature != signature:
+                    if current:
+                        groups.append((str(signature[0]), current))
+                    current = []
+                    signature = next_signature
+                if next_signature is not None:
+                    current.append(child)
+            if current:
+                groups.append((str(signature[0]), current))
+            for role, nodes in groups:
                 if len(nodes) < 2 or any(cls._is_navigation(node) for node in nodes):
                     continue
                 # Los motores anteriores ya conocen estos contenedores.
-                if any(word in classes.lower() for word in ("product", "quote", "card", "item", "result", "entry")):
+                if any(word in " ".join(node.get("class", [])).lower()
+                       for node in nodes for word in ("product", "quote", "card", "item", "result", "entry")):
                     continue
                 sample = nodes[:3]
                 links = [next((a for a in node.find_all("a", href=True)
@@ -252,19 +269,18 @@ class SchemaBuilder:
                 children = nodes[0].find_all(recursive=False)
                 if len(children) < 3:
                     continue
-                # Selección exacta del grupo, restringida a su padre.
-                child_selector = "div"
-                if role:
-                    child_selector += f"[role={json.dumps(role)}]"
-                if classes:
-                    child_selector += f"[class={json.dumps(classes, ensure_ascii=False)}]"
+                # Selección exacta de los hermanos comprobados, incluso con
+                # clases alternadas, sin incluir cabeceras ni otros grupos.
+                positions = [len(node.find_previous_siblings()) + 1 for node in nodes]
+                group_selector = ":is(" + ", ".join(f"div:nth-child({pos})" for pos in positions) + ")"
                 parent_path = cls._element_path(parent)
-                base = f"{parent_path} > {child_selector}" if parent_path else child_selector
+                base = f"{parent_path} > {group_selector}" if parent_path else group_selector
                 try:
-                    if len(soup.select(base)) != len(nodes):
+                    if list(soup.select(base)) != nodes:
                         continue
                 except Exception:
                     continue
+                child_selector = 'body > div[role="row"]' if role else "body > div"
                 link_path = cls._element_path(links[0], nodes[0])
                 if not all(cls._element_path(link, node) == link_path
                            for link, node in zip(links, sample)):

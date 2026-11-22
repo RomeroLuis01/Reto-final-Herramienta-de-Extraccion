@@ -47,3 +47,22 @@ def test_navigation_alone_is_not_a_dataset():
     html = "<nav><ul><li><a href='/a'>Inicio</a></li><li><a href='/b'>Ayuda</a></li></ul></nav>"
     with pytest.raises(SchemaBuildError):
         build(html)
+
+
+def test_alternating_classes_without_roles_include_all_rows_not_other_siblings():
+    html = '''<nav><ul><li><a href="/menu">Menú</a></li></ul></nav><main><section>
+      <h2>Ejercicios</h2><div class="heading">Título y estado</div>
+      <div class="row light"><div><a href="/one">Uno</a></div><div data-field="aceptacion">10%</div><div data-field="dificultad">Fácil</div></div>
+      <div class="row dark"><div><a href="/two">Dos</a></div><div data-field="aceptacion">20%</div><div data-field="dificultad">Media</div></div>
+      <div class="row light"><div><a href="/three">Tres</a></div><div data-field="aceptacion">30%</div><div data-field="dificultad">Difícil</div></div>
+      <div class="row dark"><div><a href="/four">Cuatro</a></div><div data-field="aceptacion">40%</div><div data-field="dificultad">Fácil</div></div>
+      <div class="pagination"><a href="/next">Siguiente</a></div>
+      </section></main>'''
+    schema = build(html)
+    records = schema.apply(html, base_url="https://example.com")
+    assert [record["titulo"] for record in records] == ["Uno", "Dos", "Tres", "Cuatro"]
+    assert [record["enlace"] for record in records] == [
+        "https://example.com/one", "https://example.com/two",
+        "https://example.com/three", "https://example.com/four",
+    ]
+    assert [record["aceptacion"] for record in records] == ["10%", "20%", "30%", "40%"]
