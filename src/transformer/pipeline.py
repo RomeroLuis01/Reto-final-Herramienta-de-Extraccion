@@ -50,13 +50,19 @@ class DataCleaner(BaseTransformer):
         cleaned_records: list[dict[str, Any]] = []
         for record in data:
             cleaned: dict[str, Any] = {}
+            field_operations = {key: list(value) for key, value in
+                                (record.get("_field_transformations") or {}).items()}
             for key, value in record.items():
                 if key.startswith("_"):
                     cleaned[key] = value
                 elif isinstance(value, list):
+                    field_operations.setdefault(key, []).append("clean")
                     cleaned[key] = [v for v in (_clean_value(i) for i in value) if v is not None]
                 else:
+                    if isinstance(value, str):
+                        field_operations.setdefault(key, []).append("clean")
                     cleaned[key] = _clean_value(value)
+            cleaned["_field_transformations"] = field_operations
             cleaned["_transformations"] = list(record.get("_transformations", [])) + ["clean"]
             cleaned_records.append(cleaned)
         return cleaned_records
@@ -79,6 +85,12 @@ class Normalizer(BaseTransformer):
         for record in data:
             result = dict(record)
             applied = list(record.get("_transformations", []))
+            field_operations = {key: list(value) for key, value in
+                                (record.get("_field_transformations") or {}).items()}
+            field_errors = dict(record.get("_field_validation_errors") or {})
+            known = {"strip", "text", "string", "str", "upper", "lower", "title",
+                     "number", "float", "decimal", "integer", "int", "date",
+                     "boolean", "bool", "url"}
             for field_name, transform in self.field_transforms.items():
                 if field_name not in result or result[field_name] is None:
                     continue
@@ -86,7 +98,11 @@ class Normalizer(BaseTransformer):
                 if ok:
                     result[field_name] = new_value
                     applied.append(f"normalize:{field_name}:{transform}")
+                    if transform.strip().lower() in known:
+                        field_operations.setdefault(field_name, []).append(f"normalize:{transform}")
+                        field_errors.setdefault(field_name, "valido")
                 else:
+                    field_errors[field_name] = "error_tipo"
                     result["_validation_status"] = "error_tipo"
                     result.setdefault("_validation_errors", []).append(
                         f"No se pudo aplicar '{transform}' a '{field_name}'"
@@ -100,12 +116,18 @@ class Normalizer(BaseTransformer):
                 if ok:
                     result[field_name] = new_value
                     applied.append(f"normalize:{field_name}:{target_type}")
+                    if target_type.strip().lower() in known:
+                        field_operations.setdefault(field_name, []).append(f"normalize:{target_type}")
+                        field_errors.setdefault(field_name, "valido")
                 else:
+                    field_errors[field_name] = "error_tipo"
                     result["_validation_status"] = "error_tipo"
                     result.setdefault("_validation_errors", []).append(
                         f"No se pudo convertir '{field_name}' a {target_type}"
                     )
             result["_transformations"] = applied
+            result["_field_transformations"] = field_operations
+            result["_field_validation_errors"] = field_errors
             normalized.append(result)
         return normalized
 
@@ -208,6 +230,13 @@ class Validator(BaseTransformer):
                 status = "incompleto"
             else:
                 status = "valido"
+            field_status = dict(result.get("_field_validation_errors") or {})
+            for name in self.required_fields:
+                if name in missing and field_status.get(name) != "error_tipo":
+                    field_status[name] = "incompleto"
+                elif name not in missing and name not in field_status:
+                    field_status[name] = "valido"
+            result["_field_validation_status"] = field_status
             result["_validation_status"] = status
             result["_validation_errors"] = errors
             result["_transformations"] = list(result.get("_transformations", [])) + ["validate"]
@@ -289,6 +318,24 @@ class LineageEnricher(BaseTransformer):
                     dict.fromkeys(record.get("_transformations", []))
                 ),
                 "execution_id": self.execution_id,
+            }
+            field_status = record.get("_field_validation_status") or record.get("_field_validation_errors") or {}
+            field_operations = record.get("_field_transformations") or {}
+            result["_field_lineage"] = {
+                name: {
+                    "source_url": result["_lineage"]["source_url"],
+                    "acquisition_date": result["_lineage"]["acquisition_date"],
+                    "extraction_method": result["_lineage"]["extraction_method"],
+                    "execution_id": result["_lineage"]["execution_id"],
+                    "source_field": name,
+                    "page_number": source.get("page_number"),
+                    "selector": (field_meta.get(name) or {}).get("selector"),
+                    "selector_type": (field_meta.get(name) or {}).get("selector_type"),
+                    "attribute": (field_meta.get(name) or {}).get("attribute"),
+                    "validation_status": field_status.get(name, "no_evaluado"),
+                    "applied_transformations": list(field_operations.get(name, [])),
+                }
+                for name in result if not name.startswith("_")
             }
             enriched.append(result)
         return enriched
