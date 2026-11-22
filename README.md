@@ -2,7 +2,7 @@
 
 **Estado:** diagnóstico, extracción, selección, transformación, almacenamiento y comparación de perfiles; consulte las limitaciones y pruebas descritas abajo.
 
-La herramienta conecta módulos de diagnóstico y extracción, permite respetar `robots.txt` y conserva datos originales y procesados por separado. La detección de un mecanismo no garantiza que se pueda extraer mediante él ni que los resultados sean completos.
+La herramienta conecta módulos de diagnóstico y extracción, permite respetar `robots.txt` y conserva datos originales y procesados por separado. La detección de un mecanismo no garantiza que se pueda extraer mediante él ni que los resultados sean completos. Consulte el [manual de usuario](docs/manual_usuario.md) para el procedimiento completo.
 
 ## Estructura del proyecto
 
@@ -46,7 +46,7 @@ Variables nuevas del Avance 2 en `.env`: `EXTRACTION_MAX_PAGES`, `EXTRACTION_MAX
 
 ## Uso
 
-Si el diagnóstico detecta una verificación identificable o un inicio de sesión y `robots.txt` permite la ruta, la interfaz puede ofrecer abrir Chrome visible. La interacción es opcional y la realiza el usuario. Tras completarla, permanezca en la URL original en el mismo navegador y pulse **Continuar** antes de cinco minutos. Si todavía aparece una verificación, puede seguir en ese navegador y comprobar de nuevo; algunos formularios requieren pulsar **Submit** manualmente, y marcar la casilla no garantiza que el servidor haya aceptado el acceso. Si el sitio muestra una confirmación tras enviar el formulario manualmente, permanezca en ella y compruebe de nuevo sin recargar; solo recargue si la aplicación indica que no pudo verificar la respuesta. La aplicación exige evidencia HTTP exitosa del documento principal y vuelve a comprobar las barreras; si no puede verificarlas, se detiene. La demostración reCAPTCHA es un formulario de prueba y no garantiza una página con datos protegidos. El modo manual procesa únicamente la página verificada, sin paginación automática ni guardar cookies. Un 403 genérico, 429, 503, SSRF o `robots.txt` desfavorable no habilita esta opción. La comprobación anti-SSRF se realiza antes y después de la navegación; no intercepta cada redirección antes de que el navegador la solicite.
+Si el diagnóstico detecta una verificación identificable o un inicio de sesión y `robots.txt` permite la ruta, la interfaz puede ofrecer abrir Chrome visible. La interacción es opcional y la realiza el usuario. Tras completarla, permanezca en la URL original en el mismo navegador y pulse **Continuar** antes de cinco minutos. Si todavía aparece una verificación, puede seguir en ese navegador y comprobar de nuevo; algunos formularios requieren pulsar **Submit** manualmente, y marcar la casilla no garantiza que el servidor haya aceptado el acceso. Si el sitio muestra una confirmación tras enviar el formulario manualmente, permanezca en ella y compruebe de nuevo sin recargar; solo recargue si la aplicación indica que no pudo verificar la respuesta. La aplicación exige evidencia HTTP exitosa del documento principal y vuelve a comprobar las barreras; si no puede verificarlas, se detiene. La demostración reCAPTCHA es un formulario de prueba y no garantiza una página con datos protegidos. Con un límite mayor que uno, la interfaz ofrece capturar más documentos: el usuario navega y confirma cada uno en la misma sesión; la herramienta comprueba de nuevo el origen, `robots.txt`, la respuesta y las barreras. No hay paginación automática ni se guardan cookies. Un 403 genérico, 429, 503, SSRF o `robots.txt` desfavorable no habilita esta opción. La comprobación anti-SSRF se realiza antes y después de la navegación; no intercepta cada redirección antes de que el navegador la solicite.
 
 ### Autenticación HTTP autorizada
 
@@ -165,7 +165,7 @@ Cada registro procesado también incluye `_field_lineage`, con URL, fecha de adq
 
 Las pruebas incluyen servidores locales controlados, pruebas de componentes con Selenium simulado y algunas pruebas de Chrome. No se presentan los servidores locales como sitios públicos diferentes ni se da por demostrada la extracción de todos los mecanismos y sitios del criterio de aceptación. Un endpoint observado no se considera autorizado; los perfiles anteriores que lo etiquetaban como autorizado lo conservan como dato de autorización no verificada.
 
-`max_pages` limita páginas o capturas, no garantiza cobertura completa. En scroll y botones, las capturas pueden acumular registros repetidos: el límite de registros se aplica antes de deduplicar, por lo que puede quedar reducido el número final de registros únicos. Los reportes indican mecanismo, motivo de parada y advertencias; si se detecta un botón sin selector configurado, no se pulsa automáticamente. En uso programático, `extraction_rules` acepta `load_more_selector` e `infinite_scroll`. El modo de verificación manual captura una sola página y no continúa automáticamente.
+`max_pages` limita páginas o capturas, no garantiza cobertura completa. En scroll y botones, las capturas pueden acumular registros repetidos: el límite de registros se aplica antes de deduplicar, por lo que puede quedar reducido el número final de registros únicos. Los reportes indican mecanismo, motivo de parada y advertencias; si se detecta un botón sin selector configurado, no se pulsa automáticamente. En uso programático, `extraction_rules` acepta `load_more_selector` e `infinite_scroll`. En modo manual, cada captura adicional requiere navegación y confirmación explícitas del usuario; no continúa automáticamente.
 
 ## Seguridad y ética
 
@@ -183,14 +183,14 @@ python -m pytest -q tests/test_extraction_avance2.py
 python -m pytest tests/ -m "not integration and not selenium" -v
 ```
 
-Las pruebas abarcan extractores, selección, linaje, almacenamiento, servidores locales, barreras y reportes. Las marcadas `selenium` requieren Chrome compatible; los resultados dependen del entorno disponible.
+Las pruebas abarcan extractores, selección, linaje, almacenamiento, servidores locales, barreras y reportes. Las marcadas `selenium` requieren Chrome compatible; los resultados dependen del entorno disponible. Las pruebas reales de PostgreSQL y MongoDB son optativas: consulte las condiciones y ejecución en el [manual](docs/manual_usuario.md#9-pruebas).
 
 ### Interfaz gráfica
 
 El menú **Sitio de prueba** permite seleccionar LeetCode, NASA, Books to Scrape
 o Quotes to Scrape con JavaScript. La URL también se puede escribir o editar.
 
-Ejecute `python gui.py`. La ventana permite diagnosticar, configurar límites y formatos, ejecutar extracciones y abrir reportes, logs y datos.
+Ejecute `python gui.py`. La ventana permite diagnosticar, configurar límites y formatos, ejecutar extracciones y abrir reportes, logs y datos. Para ver candidatos de sección y ejemplos, primero pulse **Diagnosticar** y después abra **Configurar sección y campos…**. La vista se basa en la muestra HTML estática recibida durante ese diagnóstico, requiere que `robots.txt` permita la ruta y que no haya barreras, y no realiza otra petición. No es un inspector visual del DOM dinámico.
 
 Para elegir información sin crear un archivo, pulse **Configurar sección y campos…**. Introduzca un selector CSS que identifique los contenedores de registros; para datos estructurados, use una ruta o déjelo vacío para la raíz. Escriba un campo por línea con el formato `nombre; selector; tipo; atributo`. Por ejemplo:
 

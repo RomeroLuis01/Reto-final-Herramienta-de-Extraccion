@@ -1,164 +1,145 @@
-# Manual de Usuario — Avances 1 y 2
+# Manual de usuario
 
-## Herramienta de Extracción Inteligente y Automatizada de Información Web
+Esta guía describe el diagnóstico y la extracción de información accesible y autorizada. Los resultados dependen de cada sitio; detectar un mecanismo no garantiza que pueda usarse para extraer datos ni que una captura sea completa. Consulte los términos de uso, permisos y privacidad aplicables antes de analizar un sitio.
 
-### 1. Propósito
+## 1. Instalación y preparación
 
-El sistema realiza un diagnóstico técnico automatizado (Avance 1) y, a partir de él, ejecuta una extracción multitecnología controlada (Avance 2): selecciona campos, transforma y valida datos, guarda originales y procesados por separado, y genera reportes con linaje por registro.
+Se requiere Python 3.10 o posterior. Para el contenido renderizado y la verificación manual se necesita Chrome compatible con Selenium y un controlador compatible. El acceso a la red es necesario para instalar dependencias y para consultar sitios; la descarga inicial de un controlador también puede requerirlo.
 
-### 2. Requisitos previos
+Abra PowerShell en la carpeta del proyecto y ejecute:
 
-- Python 3.10 o superior (probado en Python 3.13).
-- Google Chrome para análisis/extracción dinámica con Selenium.
-- Dependencias: `pip install -r requirements.txt`.
-
-### 3. Configuración (`.env`)
-
-Copie `.env.example` a `.env`. Además de los parámetros del Avance 1, puede ajustar:
-
-| Variable | Valor por defecto | Uso |
-|---|---:|---|
-| `EXTRACTION_MAX_PAGES` | `3` | Páginas máximas por ejecución. |
-| `EXTRACTION_MAX_RECORDS` | `50` | Registros máximos por ejecución. |
-| `EXTRACTION_DELAY_S` | `1.0` | Pausa entre peticiones/páginas. |
-| `EXTRACTION_DEFAULT_FORMAT` | `json` | Formato por defecto de salida. |
-| `EXTRACTION_PAGE_PARAM` | vacío | Parámetro de paginación para APIs; configúrelo solo si la API lo admite. |
-| `DATA_DIR` | `data` | Carpeta de datasets `raw`/`processed`. |
-
-Nunca versione `.env`.
-
-### 4. Ejecución
-
-Para acceso HTTP autorizado, configure en el entorno o `.env` las variables
-`EXTRACTION_AUTH_USERNAME` y `EXTRACTION_AUTH_PASSWORD` (Basic) o
-`EXTRACTION_AUTH_TOKEN` (Bearer). Elija el modo en la interfaz gráfica o use
-`--auth basic` / `--auth bearer` en la línea de comandos. Nunca incluya las
-credenciales en la URL ni comparta el archivo `.env`. Use HTTPS, salvo pruebas
-locales. Solo se admiten los motores requests y API y se bloquean redirecciones
-o endpoints fuera del origen; Selenium y formularios no heredan la sesión.
-
-#### Modo interactivo
-
-```bash
-python main.py
+```powershell
+python -m pip install -r requirements.txt
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-El flujo solicita URL, etiqueta y si se incluye Selenium. Después del diagnóstico pregunta si desea extraer; si responde `s`, solicita estrategia (`auto`, `requests`, `selenium`, `api`), límites, formatos y ruta de esquema opcional.
+Si `.env` ya existe, revíselo y agregue solo los ajustes necesarios sin reemplazarlo. Las variables del entorno tienen prioridad. No comparta credenciales ni el archivo `.env`. Las rutas predeterminadas de datos, perfiles, reportes y registros pueden configurarse mediante las variables descritas en `.env.example`.
 
-#### Modo por línea de comandos
+## 2. Flujo desde la interfaz
 
-```bash
-# Extracción automática (recomendada)
-python main.py --url https://books.toscrape.com --label "Books" --extract
+1. Ejecute `python gui.py` desde la carpeta del proyecto.
+2. Escriba la URL o elija un sitio de la lista. Una opción de la lista no garantiza disponibilidad ni autorización.
+3. Pulse **Diagnosticar**. Revise en la ventana y en **Ver reportes** el estado de acceso, restricciones, tecnología probable y estrategias. Puede desmarcar el análisis dinámico con Selenium si solo necesita el diagnóstico HTTP.
+4. Configure los límites **Máx. páginas/capturas** y **Máx. registros**, la estrategia y uno o más formatos. Seleccione los datos como se explica en la siguiente sección.
+5. Pulse **Diagnosticar y extraer**. El programa vuelve a diagnosticar, aplica las restricciones y muestra el resultado. Abra **Ver datos**, **Ver reportes** o **Ver logs** para revisarlo.
 
-# Contenido dinámico con Selenium
-python main.py --url https://quotes.toscrape.com/js/ --extract --strategy selenium \
-  --max-pages 2 --max-records 25
+**Máx. páginas/capturas** incluye la primera captura. El límite de registros se aplica antes de eliminar duplicados: puede obtener menos registros únicos. Un límite alcanzado o un estado `ok` no demuestra que se haya obtenido todo el contenido; examine las advertencias y el motivo de parada.
 
-# API REST con esquema propio
-python main.py --url https://api.spacexdata.com/v4/launches --no-selenium \
-  --extract --strategy api --schema schema.json --format json,sqlite
+## 3. Elegir sección y campos
 
-# Reutilizar diagnóstico previo del perfil
-python main.py --url https://books.toscrape.com --extract --reuse-profile
+### Vista previa de candidatos
 
-# Prueba local controlada (único caso en que se permite loopback)
-python main.py --url http://127.0.0.1:8000 --extract --allow-private-network
+1. Introduzca la URL y pulse **Diagnosticar**; espere a que termine.
+2. Abra **Configurar sección y campos…**. Si el HTML estático recibido permite inferir candidatos, elija uno de la lista y revise el selector y hasta tres ejemplos.
+3. Pulse **Usar candidato y editar**. Ajuste la sección y elimine o modifique las líneas de campos que no necesite. Pulse **Guardar selección**.
+4. Compruebe que el campo **Esquema JSON** esté vacío y ejecute **Diagnosticar y extraer**. Revise los datos finales para confirmar que corresponden a la sección deseada.
 
-# Solo diagnóstico / perfiles
-python main.py --url https://books.toscrape.com --no-selenium
+La vista usa solamente HTML estático ya obtenido, en memoria, sin hacer otra petición ni guardar la muestra en el perfil. No se ofrece si hay una barrera o `robots.txt` no autoriza expresamente la ruta; tampoco representa necesariamente el DOM generado por JavaScript. No es una selección mediante clic sobre la página. Si no hay muestra o candidatos, introduzca selectores manualmente o use un esquema JSON.
+
+### Selectores manuales
+
+En **Configurar sección y campos…**, escriba el selector base que identifica cada registro y una línea por campo:
+
+```text
+nombre; selector; tipo; atributo
+```
+
+Por ejemplo, si cada registro se identifica con `.product`:
+
+```text
+titulo; h2; css; text
+enlace; a; css; href
+```
+
+`tipo` y `atributo` son opcionales: por defecto son `css` y `text`. Los tipos aceptados son `css`, `xpath`, `regex`, `attribute` y `json_path`. Para datos JSON, CSV o XML ya interpretados, use rutas de campos con `json_path`; la sección puede ser la raíz. La inferencia XML es conservadora y no cubre todas las estructuras ni espacios de nombres. La validación del formulario comprueba el esquema, no que los selectores produzcan los datos deseados.
+
+**Usar selección automática** elimina la configuración manual de la interfaz. También puede elegir un archivo en **Esquema JSON**, pero no combinarlo con la selección manual. El README incluye un ejemplo de esquema con campos requeridos, transformación y selector de página siguiente. La inferencia automática intenta evitar navegación, pero debe revisarse: no siempre distingue la sección correcta.
+
+## 4. Estrategia y contenido dinámico
+
+- `auto` usa la recomendación del diagnóstico. `requests` obtiene respuestas HTTP; `api` consulta JSON de la URL objetivo o endpoints expresamente configurados en uso programático. `selenium` obtiene el DOM renderizado con Chrome.
+- Para forzar scroll infinito, elija **selenium** y marque **Activar scroll infinito**. Para un botón de carga, elija **selenium** e introduzca su selector en **Selector CSS cargar más**. Son opciones excluyentes. Si se detecta un botón pero no se configura su selector, no se pulsa automáticamente.
+- La paginación por enlaces puede utilizar el selector detectado o `next_page_selector` en un esquema JSON. Los reportes indican capturas, mecanismo y motivo de parada cuando están disponibles.
+- En scroll y carga por botón, las capturas pueden contener registros acumulados y repetidos. El límite se aplica antes de la deduplicación y no demuestra cobertura completa.
+
+El diagnóstico puede identificar indicios de GraphQL, XHR/Fetch, eventos y carga temporal, así como solicitudes observadas por el navegador. Los indicios no prueban que un evento se haya ejecutado; una solicitud observada no demuestra autorización. No existe soporte general para extraer por GraphQL, WebSocket u otros protocolos solo porque se detecten.
+
+## 5. Barreras y autenticación
+
+No intente eludir CAPTCHAs, controles de acceso ni restricciones. Ante una barrera o respuesta restrictiva, la aplicación informa el motivo y puede detener la extracción.
+
+Para autenticación HTTP autorizada, configure en el entorno o en `.env` `EXTRACTION_AUTH_USERNAME` y `EXTRACTION_AUTH_PASSWORD` para Basic, o `EXTRACTION_AUTH_TOKEN` para Bearer. Seleccione el modo en **Autenticación HTTP** o use `--auth basic` / `--auth bearer` en la CLI. Las credenciales no se pasan como argumentos. La autenticación HTTP configurada se aplica a `requests` o API, no a Selenium; use HTTPS fuera de pruebas locales.
+
+Cuando se identifica una verificación o formulario compatible y `robots.txt` permite la ruta, la interfaz puede ofrecer Chrome visible. La interacción la realiza el usuario:
+
+1. Acepte **Abrir navegador**, complete la verificación o inicio de sesión y envíe el formulario si corresponde. Permanezca en la URL solicitada y pulse **Continuar**. Una casilla marcada no confirma por sí sola el acceso.
+2. Si la aplicación permite comprobar de nuevo, siga las instrucciones y vuelva a intentarlo en la misma sesión. El tiempo total de la sesión manual es de cinco minutos.
+3. Si configuró más de una captura, puede navegar manualmente a otro documento del mismo origen y pulsar **Comprobar página**. Cada documento necesita respuesta HTTP 2xx propia, una navegación nueva, `robots.txt` permitido y ausencia de barreras. Para terminar sin otra captura, pulse **Finalizar**. Si la comprobación de una página adicional falla, se detiene y el reporte puede conservar como parcial lo verificado anteriormente.
+
+No se avanza automáticamente ni se guardan las cookies para otra ejecución. Un 403 genérico, 429, 503, SSRF o `robots.txt` desfavorable no habilita el flujo manual. Chrome valida destinos antes y después de la navegación, pero no intercepta cada redirección antes de que el navegador la solicite. La CLI no presenta el diálogo de verificación manual de la interfaz.
+
+## 6. Línea de comandos
+
+Para ver todas las opciones:
+
+```powershell
+python main.py --help
 python main.py --list-profiles
 ```
 
-### 5. Selección de campos
+Ejemplos, sustituyendo la URL por un destino permitido:
 
-Si no se proporciona `--schema`, la herramienta infiere un esquema del perfil del Avance 1 y de la primera página obtenida:
-
-- Tablas: usa encabezados `<th>` o la first row para nombrar columnas.
-- Listas/tarjetas: usa clases y etiquetas repetidas (`article`, `.product`, `.quote`, `.card`, `li`, etc.).
-- APIs: usa las claves del primer objeto JSON y el contenedor `data`/`results`/`items`.
-
-Si la inferencia no es suficiente, cree un JSON como este:
-
-```json
-{
-  "name": "libros",
-  "base_selector": "article.product_pod",
-  "fields": [
-    {"name": "titulo", "selector": "h3 a", "attribute": "text", "required": true, "transform": "strip"},
-    {"name": "precio", "selector": "p.price_color", "transform": "number"},
-    {"name": "detalle", "selector": "h3 a", "attribute": "href"}
-  ]
-}
+```powershell
+python main.py --url https://example.com/ --no-selenium
+python main.py --url https://example.com/ --extract --strategy requests --max-pages 1 --max-records 20 --format json,csv
+python main.py --url https://example.com/ --extract --schema esquema.json --format sqlite --output-dir resultados
 ```
 
-Transformaciones disponibles en `transform`: `strip`, `upper`, `lower`, `title`, `number`, `integer`, `date`, `boolean`, `url`.
+`--no-selenium` omite el análisis DOM dinámico del diagnóstico. `--schema` usa un archivo JSON; sin él se intenta inferir un esquema. `--reuse-profile` reutiliza el diagnóstico disponible, que podría estar desactualizado. `--allow-private-network` relaja la protección de red y se reserva para servidores locales controlados. Para la API, `EXTRACTION_PAGE_PARAM` debe configurarse solo si el servicio admite ese parámetro; los endpoints observados no se usan como autorización implícita.
 
-### 6. Archivos generados
+## 7. Datos, reportes y linaje
 
-| Ruta | Contenido |
-|---|---|
-| `profiles/<dominio>.json` | Perfil reutilizable del sitio (incluye diagnóstico actual). |
-| `reports/<dominio>_<fecha>.json/.txt` | Reporte de diagnóstico del Avance 1. |
-| `reports/<dominio>_extraccion_<fecha>.json/.txt` | Reporte de extracción del Avance 2. |
-| `data/<dominio>_raw_<fecha>_<id>.*` | Registros originales, sin transformar. |
-| `data/<dominio>_processed_<fecha>_<id>.*` | Registros limpios, validados y con `_lineage`. |
-| `logs/session_<fecha>.log` | Trazabilidad sin secretos. |
+Por defecto `data/` contiene conjuntos separados `raw` y `processed`; `reports/` contiene reportes de diagnóstico y extracción; `profiles/` contiene perfiles y comparaciones; `logs/` contiene registros de ejecución. Las ubicaciones pueden variar según la configuración. La ventana de resultados también indica las rutas generadas.
 
-En SQLite, ambos datasets se guardan como tablas distintas dentro de `<dominio>_datasets.sqlite`.
+Los datos originales incluyen `_source` y `_field_meta`. Los procesados conservan `_lineage` por registro y `_field_lineage` por campo, con procedencia, estado de validación y transformaciones registradas. `no_evaluado` indica que un campo no tuvo validación individual. En formatos tabulares, las estructuras anidadas se representan como texto serializado. Revise calidad, campos vacíos, duplicados, cobertura y errores en el reporte; `partial` indica que hubo un fallo parcial.
 
-### 7. Linaje y calidad
+El perfil compara, cuando hay una ejecución anterior compatible, selectores, campos, columnas, estructura JSON, volumen y endpoints configurados u observados por separado. Una diferencia no prueba por sí sola que el sitio haya cambiado: también puede deberse a límites, selección o condiciones de acceso diferentes.
 
-Cada registro procesado incluye `_lineage`:
+## 8. PostgreSQL y MongoDB
 
-```json
-{
-  "source_url": "https://books.toscrape.com/catalogue/page-1.html",
-  "acquisition_date": "2026-11-17T12:34:56",
-  "extraction_method": "requests",
-  "source_field": "titulo, precio, detalle",
-  "validation_status": "valido",
-  "applied_transformations": ["clean", "normalize:precio:number", "validate", "dedupe"],
-  "execution_id": "uuid..."
-}
+Instale las dependencias opcionales si aún no están instaladas:
+
+```powershell
+python -m pip install "psycopg[binary]>=3.1" "pymongo>=4.6"
 ```
 
-El reporte de extracción resume registros crudos/procesados, válidos/incompletos, duplicados eliminados, completitud por campo y cobertura de linaje.
+Configure `EXTRACTION_POSTGRES_URI`, `EXTRACTION_MONGODB_URI` y, si corresponde, `EXTRACTION_MONGODB_DATABASE` en el entorno o `.env`. Seleccione los formatos en la interfaz o con `--format postgresql,mongodb`. PostgreSQL almacena cada registro en una columna JSONB `record`; MongoDB lo guarda en un documento `record`. Se usan tablas o colecciones separadas para datos originales y procesados. **Ver datos** permite consultar estas fuentes con la conexión configurada; la vista es de solo lectura y muestra hasta 3000 registros.
 
-### 8. Mecanismos y escenarios válidos
+Para servidores locales puede utilizar `docker compose up -d` y revisar `docker compose ps`, previa configuración coherente con `.env.example`. No sobrescriba configuraciones existentes ni comparta las URI. Los volúmenes mantienen datos al detener los servicios; `docker compose down -v` los elimina. Consulte los detalles de Docker en el README.
 
-| Mecanismo | Cuándo usarlo |
-|---|---|
-| `requests` (HTML) | Páginas estáticas con o sin paginación clásica. |
-| `requests` (JSON/XML/CSV) | Feeds y respuestas estructuradas directas. |
-| `selenium` | DOM generado por JavaScript, scroll infinito o botón "cargar más". |
-| `api` | Endpoints REST autorizados detectados en el diagnóstico. |
+## 9. Pruebas
 
-Escenarios recomendados para prueba controlada: `books.toscrape.com`, `quotes.toscrape.com/js/`, `quotes.toscrape.com/scroll`, `api.spacexdata.com/v4/launches` y páginas locales con CAPTCHA/403/robots desfavorable.
+```powershell
+python -m pytest -q
+python -m pytest -q tests/test_selenium_dynamic_real.py
+python -m pytest -q tests/test_mechanism_detection_real.py
+```
 
-### 9. Controles de seguridad y ética
+Las pruebas Selenium usan Chrome y un servidor local controlado; no equivalen a pruebas en sitios públicos distintos. La prueba de bases reales es optativa y está desactivada por defecto. Para ejecutarla configure ambas URI en el entorno y use:
 
-- Solo `http`/`https`; se bloquean destinos internos, loopback y metadatos salvo en pruebas locales explícitas.
-- Redirecciones se validan una por una; TLS permanece activo.
-- Las cabeceras y URLs se sanitizan antes de guardarse.
-- Si el diagnóstico detecta CAPTCHA, autenticación, HTTP 401/403/429/503 o `robots.txt` desfavorable, la extracción **se detiene y se reporta**. La herramienta no intenta eludir estas barreras.
-- La viabilidad técnica no sustituye la revisión de términos de servicio ni autorización legal.
+```powershell
+$env:RUN_EXTERNAL_STORAGE_TESTS = '1'
+python -m pytest -q tests/test_external_storage_integration.py
+Remove-Item Env:RUN_EXTERNAL_STORAGE_TESTS
+```
 
-### Interfaz gráfica
+La prueba crea nombres únicos con datos sintéticos marcados y verifica el contenido antes de limpiar únicamente los objetos creados por ella. Si las URI no están configuradas, se omite. No imprima ni copie las URI en reportes o capturas.
 
-Ejecute `python gui.py` para abrir la aplicación de escritorio (requiere Tkinter,
-incluido habitualmente con Python). Escriba la URL y pulse **Diagnosticar** o
-**Diagnosticar y extraer**. Puede configurar la estrategia, límites, formatos y
-un esquema JSON opcional; los resultados y las rutas aparecen en la ventana.
-El diagnóstico y la extracción se ejecutan en segundo plano. Se mantienen los
-controles de barreras y `robots.txt` de la aplicación de consola.
+## 10. Problemas frecuentes
 
-### Almacenamiento en PostgreSQL y MongoDB
-
-Instale las dependencias opcionales con `pip install "psycopg[binary]>=3.1" "pymongo>=4.6"`. Configure en `.env` la URI `EXTRACTION_POSTGRES_URI` o `EXTRACTION_MONGODB_URI`; para MongoDB puede configurar también `EXTRACTION_MONGODB_DATABASE`. En la interfaz o con `--format postgresql` o `--format mongodb`, los datos crudos y procesados se guardan en tablas o colecciones separadas. Las URIs deben mantenerse privadas.
-
-### Consultar reportes y logs desde la interfaz
-
-En la ventana principal, use **Ver reportes** para seleccionar un diagnóstico o una extracción y explorar sus secciones y campos. Use **Ver logs** para revisar los eventos por fecha, nivel y módulo; seleccione un evento para ver su mensaje completo y las trazas asociadas. El botón **Actualizar** incorpora los archivos generados después de abrir el visor. Los reportes se leen de la carpeta de reportes configurada y los logs de la carpeta de logs configurada. Al iniciar la interfaz se crea un log de sesión. Para mantener la ventana ágil, el visor limita el tamaño de lectura y el número de filas que muestra; el archivo original permanece completo.
-
-Los botones **Ver reportes** y **Ver datos** muestran archivos distintos: los reportes del diagnóstico y la extracción se guardan en JSON y TXT dentro de `reports/`, independientemente del formato elegido. Los formatos seleccionados (JSON, CSV, Excel o SQLite) corresponden a los datasets originales y procesados en `data/`; abra **Ver datos** para consultarlos. Para SQLite, seleccione la tabla deseada. La vista muestra hasta 3000 registros y limita archivos JSON y CSV a 5 MB. PostgreSQL y MongoDB se consultan desde sus servicios externos.
+- **No hay candidatos:** diagnostique primero la misma URL; compruebe acceso, barreras y `robots.txt`. La página puede depender de JavaScript o no contener estructuras inferibles en el HTML estático.
+- **No se seleccionaron registros:** revise la sección, los campos, atributos y el contenido obtenido. Ajuste los selectores o use un esquema JSON.
+- **Chrome no inicia:** compruebe Chrome, el controlador y la compatibilidad de versiones; para una página estática puede probar el diagnóstico sin Selenium.
+- **Acceso bloqueado:** lea la incidencia. No repita masivamente solicitudes ni intente eludir el bloqueo; use el procedimiento de autorización disponible o elija otra fuente permitida.
+- **Base de datos inaccesible:** compruebe que el servidor esté activo y que la URI, base y credenciales sean correctas, sin publicarlas. La existencia de un contenedor activo no prueba que la aplicación pueda autenticarse.
+- **Menos datos de los esperados:** revise límites, deduplicación, paginación, tipo de carga y advertencias. Una captura manual adicional requiere una navegación nueva y comprobaciones independientes.
