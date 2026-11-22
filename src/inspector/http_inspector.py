@@ -16,7 +16,6 @@ from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
 import requests
-from charset_normalizer import from_bytes
 from requests.exceptions import (
     ConnectionError as ReqConnectionError,
     SSLError,
@@ -25,6 +24,7 @@ from requests.exceptions import (
 
 from src.config.settings import RequestConfig, get_config
 from src.monitor.logger import get_logger
+from src.utils.http_encoding import decode_http_body
 from src.utils.security import sanitize_headers, sanitize_url, validate_url_security
 from src.utils.auth import authorization, origin
 
@@ -164,14 +164,7 @@ class HttpInspector:
 
         result["security_headers"] = self._extract_security_headers(response)
 
-        encoding = response.encoding
-        if not encoding:
-            best = from_bytes(body_bytes[:65536]).best()
-            encoding = best.encoding if best else "utf-8"
-        try:
-            body_text = body_bytes.decode(encoding, errors="replace")
-        except (LookupError, UnicodeDecodeError):
-            body_text = body_bytes.decode("utf-8", errors="replace")
+        body_text = decode_http_body(body_bytes, result["content_type"])
         result["html_preview"] = body_text[:5000]
         result["_raw_body"] = body_text
 

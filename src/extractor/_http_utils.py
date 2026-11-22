@@ -12,10 +12,10 @@ from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
-from charset_normalizer import from_bytes
 
 from src.config.settings import RequestConfig
 from src.monitor.logger import get_logger
+from src.utils.http_encoding import decode_http_body
 from src.utils.security import sanitize_url, validate_url_security
 from src.utils.auth import authorization, origin
 
@@ -206,14 +206,7 @@ class HttpClient:
             response.close()
             raise ValueError(f"Extracción detenida por respuesta HTTP {status}.")
         body_bytes = self._read_limited(response)
-        encoding = response.encoding
-        if not encoding:
-            best = from_bytes(body_bytes[:65536]).best()
-            encoding = best.encoding if best else "utf-8"
-        try:
-            body = body_bytes.decode(encoding, errors="replace")
-        except (LookupError, UnicodeDecodeError):
-            body = body_bytes.decode("utf-8", errors="replace")
+        body = decode_http_body(body_bytes, response.headers.get("Content-Type", ""))
 
         final_url = sanitize_url(response.url or current_url)
         self._validate_final_url(response.url or current_url)
