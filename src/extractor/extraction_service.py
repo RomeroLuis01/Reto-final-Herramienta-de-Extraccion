@@ -57,6 +57,7 @@ class ExtractionService:
         *,
         diagnosis: dict[str, Any] | None = None,
         schema_config: dict[str, Any] | None = None,
+        schema_origin: str | None = None,
         strategy: str | None = None,
         max_pages: int | None = None,
         max_records: int | None = None,
@@ -159,7 +160,7 @@ class ExtractionService:
                 "max_records": max_records,
                 "delay_s": delay,
                 "formats": formats,
-                "schema_origin": "archivo" if schema_config else "automatico",
+                "schema_origin": (schema_origin or "archivo") if schema_config else "automatico",
             }
         )
 
@@ -211,7 +212,7 @@ class ExtractionService:
             return summary
         summary["schema"] = schema.to_dict()
         summary["extraction_config"]["schema_origin"] = (
-            "archivo" if schema_config else schema.metadata.get("origin", "automatico")
+            (schema_origin or "archivo") if schema_config else schema.metadata.get("origin", "automatico")
         )
 
         raw_records = self._select_records(schema, batch, max_records)

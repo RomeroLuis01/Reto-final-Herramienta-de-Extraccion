@@ -17,6 +17,7 @@ from src.gui.viewers import DatasetViewer, FileViewer
 from src.monitor.logger import setup_logging
 from src.monitor.reporter import DiagnosticReporter
 from src.selector.builder import load_schema_file
+from src.selector.schema import ExtractionSchema
 from src.utils.profiles import ProfileManager
 
 TEST_SITES = {
@@ -26,6 +27,26 @@ TEST_SITES = {
     "Quotes to Scrape — JavaScript": "https://quotes.toscrape.com/js/",
 }
 CUSTOM_SITE = "URL personalizada"
+
+
+def build_manual_schema(base: str, field_lines: str) -> dict[str, Any]:
+    """Construye un esquema declarativo a partir de líneas de campos de la interfaz."""
+    fields = []
+    for number, line in enumerate(field_lines.splitlines(), 1):
+        if not line.strip():
+            continue
+        parts = [part.strip() for part in line.split(";", 3)]
+        if len(parts) < 2 or len(parts) > 4:
+            raise ValueError(f"Línea {number}: use nombre; selector; tipo; atributo.")
+        fields.append({"name": parts[0], "selector": parts[1],
+                       "selector_type": (parts[2] if len(parts) > 2 and parts[2] else "css"),
+                       "attribute": (parts[3] if len(parts) > 3 and parts[3] else "text")})
+    schema = ExtractionSchema.from_dict({"name": "seleccion_manual", "base_selector": base.strip(),
+                                         "fields": fields})
+    errors = schema.validate()
+    if errors:
+        raise ValueError("; ".join(errors))
+    return schema.to_dict()
 
 
 class ExtractionApp:
@@ -47,6 +68,10 @@ class ExtractionApp:
         self.pages = tk.StringVar(value=str(self.config.extraction.max_pages))
         self.records = tk.StringVar(value=str(self.config.extraction.max_records))
         self.schema = tk.StringVar()
+        self.manual_schema: dict[str, Any] | None = None
+        self.manual_base = ""
+        self.manual_fields = ""
+        self.manual_schema_status = tk.StringVar(value="Selección manual: sin configurar")
         self.selenium = tk.BooleanVar(value=True)
         self.formats = {name: tk.BooleanVar(value=name == "json")
                         for name in ("json", "csv", "excel", "sqlite", "postgresql", "mongodb")}
@@ -58,7 +83,7 @@ class ExtractionApp:
         frame = ttk.Frame(self.root, padding=12)
         frame.pack(fill="both", expand=True)
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(9, weight=1)
+        frame.rowconfigure(10, weight=1)
         ttk.Label(frame, text="Sitio de prueba").grid(row=0, column=0, sticky="w", pady=3)
         sites = ttk.Combobox(frame, textvariable=self.site, values=(CUSTOM_SITE, *TEST_SITES), state="readonly")
         sites.grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
@@ -84,8 +109,11 @@ class ExtractionApp:
         ttk.Label(frame, text="Esquema JSON (opcional)").grid(row=7, column=0, sticky="w", pady=3)
         ttk.Entry(frame, textvariable=self.schema).grid(row=7, column=1, columnspan=2, sticky="ew")
         ttk.Button(frame, text="Examinar…", command=self._browse).grid(row=7, column=3, padx=5)
+        ttk.Button(frame, text="Configurar sección y campos…", command=self._edit_manual_schema).grid(
+            row=8, column=0, columnspan=2, sticky="w")
+        ttk.Label(frame, textvariable=self.manual_schema_status).grid(row=8, column=2, columnspan=2, sticky="w")
         actions = ttk.Frame(frame)
-        actions.grid(row=8, column=0, columnspan=4, sticky="w", pady=8)
+        actions.grid(row=9, column=0, columnspan=4, sticky="w", pady=8)
         self.diagnose_button = ttk.Button(actions, text="Diagnosticar", command=lambda: self._start(False))
         self.diagnose_button.pack(side="left", padx=(0, 8))
         self.extract_button = ttk.Button(actions, text="Diagnosticar y extraer", command=lambda: self._start(True))
@@ -93,9 +121,9 @@ class ExtractionApp:
         ttk.Button(actions, text="Ver reportes", command=lambda: FileViewer(self.root, self.config.paths.reports_dir, "reports")).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Ver logs", command=lambda: FileViewer(self.root, self.config.paths.logs_dir, "logs")).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Ver datos", command=lambda: DatasetViewer(self.root, self.config.paths.data_dir, self.config.paths.profiles_dir)).pack(side="left", padx=(8, 0))
-        ttk.Label(frame, textvariable=self.status).grid(row=10, column=0, columnspan=4, sticky="w")
+        ttk.Label(frame, textvariable=self.status).grid(row=11, column=0, columnspan=4, sticky="w")
         self.output = scrolledtext.ScrolledText(frame, wrap="word", state="disabled")
-        self.output.grid(row=9, column=0, columnspan=4, sticky="nsew")
+        self.output.grid(row=10, column=0, columnspan=4, sticky="nsew")
 
     def _select_site(self, _event: Any = None) -> None:
         url = TEST_SITES.get(self.site.get())
@@ -112,6 +140,50 @@ class ExtractionApp:
         if path:
             self.schema.set(path)
 
+    def _edit_manual_schema(self) -> None:
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Seleccionar sección y campos")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        frame = ttk.Frame(dialog, padding=12)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="Selector de sección o registros (CSS; ruta para datos estructurados):").pack(anchor="w")
+        base = ttk.Entry(frame, width=70)
+        base.insert(0, self.manual_base)
+        base.pack(fill="x", pady=(0, 8))
+        ttk.Label(frame, text=("Un campo por línea: nombre; selector; tipo; atributo\n"
+                              "Tipo opcional: css, xpath, regex, json_path o attribute (por defecto css).\n"
+                              "Atributo opcional: text, href, src… (por defecto text).\n"
+                              "Ejemplo: titulo; h2; css; text")).pack(anchor="w")
+        fields = scrolledtext.ScrolledText(frame, width=70, height=8)
+        fields.insert("1.0", self.manual_fields)
+        fields.pack(fill="both", expand=True, pady=8)
+        buttons = ttk.Frame(frame)
+        buttons.pack(anchor="w")
+
+        def save() -> None:
+            field_text = fields.get("1.0", "end-1c")
+            try:
+                schema = build_manual_schema(base.get(), field_text)
+            except ValueError as exc:
+                messagebox.showerror("Selección inválida", str(exc), parent=dialog)
+                return
+            self.manual_schema = schema
+            self.manual_base = base.get()
+            self.manual_fields = field_text
+            self.manual_schema_status.set(f"Selección manual: {len(schema['fields'])} campo(s)")
+            dialog.destroy()
+
+        def clear() -> None:
+            self.manual_schema = None
+            self.manual_base = self.manual_fields = ""
+            self.manual_schema_status.set("Selección manual: sin configurar")
+            dialog.destroy()
+
+        ttk.Button(buttons, text="Guardar selección", command=save).pack(side="left", padx=(0, 5))
+        ttk.Button(buttons, text="Usar selección automática", command=clear).pack(side="left", padx=5)
+        ttk.Button(buttons, text="Cancelar", command=dialog.destroy).pack(side="left", padx=5)
+
     def _start(self, extract: bool) -> None:
         try:
             target = register_target(self.url.get(), label=self.label.get(),
@@ -123,10 +195,13 @@ class ExtractionApp:
             formats = [name for name, value in self.formats.items() if value.get()]
             if extract and not formats:
                 raise ValueError("Seleccione al menos un formato de salida.")
+            if extract and self.schema.get().strip() and self.manual_schema:
+                raise ValueError("Use un esquema JSON o una selección manual, no ambos.")
             options = {"target": target, "use_selenium": self.selenium.get(),
                        "strategy": self.strategy.get(), "max_pages": pages,
                        "max_records": records, "formats": formats,
-                       "schema_path": self.schema.get().strip(), "extract": extract}
+                       "schema_path": self.schema.get().strip(), "manual_schema": self.manual_schema,
+                       "extract": extract}
         except ValueError as exc:
             messagebox.showerror("Configuración inválida", str(exc), parent=self.root)
             return
@@ -139,7 +214,9 @@ class ExtractionApp:
     def _run(self, options: dict[str, Any]) -> None:
         try:
             target = options["target"]
-            schema = load_schema_file(options["schema_path"]) if options["extract"] and options["schema_path"] else None
+            schema = (load_schema_file(options["schema_path"])
+                      if options["extract"] and options["schema_path"]
+                      else options.get("manual_schema") if options["extract"] else None)
             profiles = ProfileManager(self.config.paths.profiles_dir)
             previous = profiles.load(target.url)
             diagnosis = WebInspector(self.config).inspect(target, use_selenium=options["use_selenium"], previous_profile=previous)
@@ -152,6 +229,7 @@ class ExtractionApp:
                     manual_wait = lambda: self._manual_prompt("continue")
                 summary = ExtractionService(self.config).run(
                     target, diagnosis=diagnosis, profile=previous, schema_config=schema,
+                    schema_origin="interfaz" if options.get("manual_schema") else None,
                     strategy=options["strategy"], max_pages=options["max_pages"],
                     max_records=options["max_records"], formats=options["formats"],
                     use_selenium=options["use_selenium"], manual_wait=manual_wait,

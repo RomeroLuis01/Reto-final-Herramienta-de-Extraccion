@@ -79,3 +79,34 @@ def test_worker_reports_error_and_completes():
     with patch("src.gui.app.load_schema_file", side_effect=ValueError("esquema inválido")):
         app._run(options)
     assert list(app.messages.queue) == [("error", "esquema inválido"), ("done", None)]
+
+
+def test_manual_schema_builds_and_validates_fields():
+    import pytest
+    from src.gui.app import build_manual_schema
+    from src.selector.schema import ExtractionSchema
+
+    config = build_manual_schema(".product", "title; h2\nlink; a; css; href")
+    schema = ExtractionSchema.from_dict(config)
+    assert schema.apply('<div class="product"><h2>Libro</h2><a href="/x">Ir</a></div>',
+                        base_url="https://example.com")[0]["link"] == "https://example.com/x"
+    for fields in ("", "title", "title; h2; invalid", "x; h2\nx; p"):
+        with pytest.raises(ValueError):
+            build_manual_schema(".product", fields)
+
+
+def test_worker_passes_manual_schema_to_extraction():
+    app = ExtractionApp.__new__(ExtractionApp)
+    app.config = SimpleNamespace(paths=SimpleNamespace(profiles_dir="profiles", reports_dir="reports"))
+    app.messages = queue.Queue()
+    manual = {"name": "selection", "fields": [{"name": "title", "selector": "h2"}]}
+    options = {"target": SimpleNamespace(url="https://example.com"), "use_selenium": False,
+               "strategy": "requests", "max_pages": 1, "max_records": 5, "formats": ["json"],
+               "schema_path": "", "manual_schema": manual, "extract": True}
+    with patch("src.gui.app.ProfileManager"), patch("src.gui.app.WebInspector") as inspector, \
+         patch("src.gui.app.DiagnosticReporter"), patch("src.gui.app.ExtractionService") as service:
+        inspector.return_value.inspect.return_value = {"protection": {}}
+        service.return_value.run.return_value = {"status": "ok"}
+        app._run(options)
+        assert service.return_value.run.call_args.kwargs["schema_config"] is manual
+        assert service.return_value.run.call_args.kwargs["schema_origin"] == "interfaz"

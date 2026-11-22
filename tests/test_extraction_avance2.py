@@ -736,3 +736,19 @@ def test_extraction_reporter_writes_sanitized_files(tmp_path: Path) -> None:
     assert "secret" not in json_text
     assert "token" not in json_text
     assert "REPORTE DE EXTRACCIÓN" in txt_text
+
+
+def test_schema_origin_is_reported_for_manual_and_file(local_server: str, tmp_path: Path) -> None:
+    from src.config.settings import PathConfig
+    config = ProjectConfig(paths=PathConfig(base_dir=tmp_path))
+    target = AnalysisTarget(url=f"{local_server}/", allow_private_network=True)
+    for origin, expected in [("interfaz", "interfaz"), (None, "archivo")]:
+        result = ExtractionService(config).run(
+            target, diagnosis=_diagnosis(target.url), schema_config=SCHEMA_CONFIG,
+            schema_origin=origin, strategy="requests", max_pages=1, delay_s=0,
+            formats=["json"], output_dir=tmp_path / "data",
+        )
+        assert result["status"] == "ok", result["errors"]
+        assert result["extraction_config"]["schema_origin"] == expected
+        report = json.loads(Path(result["report_files"]["json"]).read_text(encoding="utf-8"))
+        assert report["extraction_config"]["schema_origin"] == expected
