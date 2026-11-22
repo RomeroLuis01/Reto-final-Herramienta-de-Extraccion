@@ -13,7 +13,8 @@ def test_preset_sites_fill_url_without_changing_other_options():
     app.strategy = MagicMock()
     app.pages = MagicMock()
     app.records = MagicMock()
-    assert len(TEST_SITES) == 5
+    assert len(TEST_SITES) == 4
+    assert all("recaptcha" not in url.lower() for url in TEST_SITES.values())
     for name, url in TEST_SITES.items():
         app.site.get.return_value = name
         app._select_site()

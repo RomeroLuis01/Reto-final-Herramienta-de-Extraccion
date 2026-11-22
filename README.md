@@ -183,10 +183,8 @@ El conjunto incluye 146 pruebas: 130 del Avance 1 y 16 nuevas del Avance 2 (extr
 
 ### Interfaz gráfica
 
-El menú **Sitio de prueba** permite seleccionar LeetCode, NASA, Books to Scrape,
-Quotes to Scrape con JavaScript o la demostración de formulario reCAPTCHA de
-Google. Esta última sirve para probar la detección de CAPTCHA; no representa
-una fuente de datos protegidos. La URL también se puede escribir o editar.
+El menú **Sitio de prueba** permite seleccionar LeetCode, NASA, Books to Scrape
+o Quotes to Scrape con JavaScript. La URL también se puede escribir o editar.
 
 Ejecute `python gui.py`. La ventana permite diagnosticar, configurar y ejecutar
 extracciones; consulte [el manual](docs/manual_usuario.md) para más detalles.
@@ -232,10 +230,3 @@ En **Ver datos**, el botón **Renombrar columnas** permite asignar nombres visib
 El botón **Ver datos** permite seleccionar la fuente **Archivos locales**, **PostgreSQL** o **MongoDB**. Para las bases de datos utiliza las conexiones configuradas en `.env` y muestra los datasets originales y procesados disponibles, con un máximo de 3000 registros por vista. Las consultas son de solo lectura; si el servidor no está disponible, inicie los contenedores y pulse **Actualizar**.
 
 Los nombres largos se acortan y terminan en un identificador; el visor los incluye como candidatos, pues ese patrón por sí solo no garantiza que pertenezcan al proyecto.
-
-La opción **Generar ejemplo simulado** se habilita únicamente para la URL de
-la demostración reCAPTCHA. Genera registros ficticios marcados como `SIMULADO`
-en los formatos seleccionados; no consulta la página ni verifica el CAPTCHA.
-Los archivos y reportes incluyen `simulado` en el nombre y no contienen los
-valores escritos en el formulario real. La extracción normal sigue respetando
-las barreras del sitio.

@@ -12,7 +12,6 @@ from typing import Any
 from src.config.settings import get_config, register_target
 from src.extractor.extraction_service import ExtractionService
 from src.extractor.manual_session import manual_eligible
-from src.extractor.demo_simulation import generate_demo, is_demo_url
 from src.inspector.web_inspector import WebInspector
 from src.gui.viewers import DatasetViewer, FileViewer
 from src.monitor.logger import setup_logging
@@ -25,7 +24,6 @@ TEST_SITES = {
     "NASA": "https://www.nasa.gov/",
     "Books to Scrape": "https://books.toscrape.com/",
     "Quotes to Scrape — JavaScript": "https://quotes.toscrape.com/js/",
-    "reCAPTCHA — demostración de formulario": "https://www.google.com/recaptcha/api2/demo",
 }
 CUSTOM_SITE = "URL personalizada"
 
@@ -53,7 +51,6 @@ class ExtractionApp:
         self.formats = {name: tk.BooleanVar(value=name == "json")
                         for name in ("json", "csv", "excel", "sqlite", "postgresql", "mongodb")}
         self.status = tk.StringVar(value="Listo")
-        self._busy = False
         self._build()
         root.after(100, self._poll)
 
@@ -61,7 +58,7 @@ class ExtractionApp:
         frame = ttk.Frame(self.root, padding=12)
         frame.pack(fill="both", expand=True)
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(10, weight=1)
+        frame.rowconfigure(9, weight=1)
         ttk.Label(frame, text="Sitio de prueba").grid(row=0, column=0, sticky="w", pady=3)
         sites = ttk.Combobox(frame, textvariable=self.site, values=(CUSTOM_SITE, *TEST_SITES), state="readonly")
         sites.grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
@@ -96,11 +93,9 @@ class ExtractionApp:
         ttk.Button(actions, text="Ver reportes", command=lambda: FileViewer(self.root, self.config.paths.reports_dir, "reports")).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Ver logs", command=lambda: FileViewer(self.root, self.config.paths.logs_dir, "logs")).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Ver datos", command=lambda: DatasetViewer(self.root, self.config.paths.data_dir, self.config.paths.profiles_dir)).pack(side="left", padx=(8, 0))
-        self.simulation_button = ttk.Button(frame, text="Generar ejemplo simulado", command=self._start_simulation, state="disabled")
-        self.simulation_button.grid(row=9, column=0, columnspan=4, sticky="w")
-        ttk.Label(frame, textvariable=self.status).grid(row=11, column=0, columnspan=4, sticky="w")
+        ttk.Label(frame, textvariable=self.status).grid(row=10, column=0, columnspan=4, sticky="w")
         self.output = scrolledtext.ScrolledText(frame, wrap="word", state="disabled")
-        self.output.grid(row=10, column=0, columnspan=4, sticky="nsew")
+        self.output.grid(row=9, column=0, columnspan=4, sticky="nsew")
 
     def _select_site(self, _event: Any = None) -> None:
         url = TEST_SITES.get(self.site.get())
@@ -111,35 +106,6 @@ class ExtractionApp:
         selected = self.site.get()
         if selected in TEST_SITES and self.url.get() != TEST_SITES[selected]:
             self.site.set(CUSTOM_SITE)
-        if hasattr(self, "simulation_button"):
-            self.simulation_button.configure(state="normal" if is_demo_url(self.url.get()) and not self._busy else "disabled")
-
-    def _start_simulation(self) -> None:
-        url = self.url.get()
-        if not is_demo_url(url):
-            messagebox.showerror("Simulación", "Solo disponible para la URL exacta de la demostración.", parent=self.root)
-            return
-        formats = [name for name, value in self.formats.items() if value.get()]
-        if not formats:
-            messagebox.showerror("Simulación", "Seleccione al menos un formato de salida.", parent=self.root)
-            return
-        if not messagebox.askyesno("Ejemplo simulado", "Se generarán datos ficticios localmente. No se extraerán datos reales ni se verificará el CAPTCHA. ¿Deseas continuar?", parent=self.root):
-            return
-        self._busy = True
-        self.diagnose_button.config(state="disabled")
-        self.extract_button.config(state="disabled")
-        self.simulation_button.config(state="disabled")
-        self.status.set("Generando simulación…")
-        threading.Thread(target=self._run_simulation, args=(url, formats), daemon=True).start()
-
-    def _run_simulation(self, url: str, formats: list[str]) -> None:
-        try:
-            summary = generate_demo(url, self.config, formats)
-            self.messages.put(("text", "\nSIMULACIÓN LOCAL (no es extracción real):\n" + json.dumps(summary, ensure_ascii=False, indent=2) + "\n"))
-        except Exception as exc:
-            self.messages.put(("error", str(exc)))
-        finally:
-            self.messages.put(("done", None))
 
     def _browse(self) -> None:
         path = filedialog.askopenfilename(title="Seleccionar esquema", filetypes=[("JSON", "*.json"), ("Todos", "*.*")])
@@ -164,8 +130,6 @@ class ExtractionApp:
         except ValueError as exc:
             messagebox.showerror("Configuración inválida", str(exc), parent=self.root)
             return
-        self._busy = True
-        self.simulation_button.config(state="disabled")
         self.diagnose_button.config(state="disabled")
         self.extract_button.config(state="disabled")
         self.status.set("Procesando…")
@@ -261,11 +225,9 @@ class ExtractionApp:
                 elif kind == "manual_prompt":
                     self._show_manual_prompt(value)
                 elif kind == "done":
-                    self._busy = False
                     self.status.set("Listo")
                     self.diagnose_button.config(state="normal")
                     self.extract_button.config(state="normal")
-                    self.simulation_button.config(state="normal" if is_demo_url(self.url.get()) else "disabled")
         except queue.Empty:
             pass
         self.root.after(100, self._poll)
