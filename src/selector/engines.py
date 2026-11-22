@@ -28,7 +28,9 @@ def json_lookup(data: Any, path: str) -> list[Any]:
     """
     if not path or path in ("$", "root"):
         return [data]
-    tokens = re.findall(r"[^.\[\]]+|\[\*\]|\[\d+\]", path)
+    # Los nombres XML de ElementTree pueden incorporar un URI entre llaves;
+    # sus puntos no son separadores de la ruta (p. ej. {https://ejemplo.org}id).
+    tokens = re.findall(r"\{[^}]*\}[^.\[\]]+|[^.\[\]]+|\[\*\]|\[\d+\]", path)
     current: list[Any] = [data]
 
     for token in tokens:
