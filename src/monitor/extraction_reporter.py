@@ -103,6 +103,10 @@ class ExtractionReporter:
             lines.append("--- Alcance de la extracción ---")
             lines.append(f"Páginas máximas solicitadas: {coverage.get('requested_max_pages', '-')}")
             lines.append(f"Páginas capturadas         : {coverage.get('captured_pages', 0)}")
+            if coverage.get("mechanism"):
+                lines.append(f"Mecanismo                 : {coverage['mechanism']}")
+            if coverage.get("stopped_reason"):
+                lines.append(f"Motivo de parada          : {coverage['stopped_reason']}")
             for warning in coverage.get("warnings") or []:
                 lines.append(f"  Aviso: {warning}")
             lines.append("")

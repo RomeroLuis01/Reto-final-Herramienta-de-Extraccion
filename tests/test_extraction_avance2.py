@@ -752,3 +752,59 @@ def test_schema_origin_is_reported_for_manual_and_file(local_server: str, tmp_pa
         assert result["extraction_config"]["schema_origin"] == expected
         report = json.loads(Path(result["report_files"]["json"]).read_text(encoding="utf-8"))
         assert report["extraction_config"]["schema_origin"] == expected
+
+
+@pytest.mark.parametrize(("config", "mechanism"), [
+    ({"infinite_scroll": True}, "scroll_infinito"),
+    ({"load_more_selector": ".more"}, "cargar_mas"),
+    ({"next_page_selector": "a[rel=next]"}, "paginacion"),
+])
+def test_selenium_reports_actual_interaction_and_capture_limit(monkeypatch, config, mechanism):
+    from src.extractor.selenium_extractor import SeleniumExtractor
+
+    class Dom:
+        def __init__(self, *args, **kwargs):
+            self.counter = 0
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def inspect(self, url, **kwargs):
+            return {"final_url": url}
+        def get_rendered_html(self):
+            self.counter += 1
+            return f'<html><body>{self.counter}<a rel="next" href="/next">Next</a></body></html>'
+        def scroll_to_bottom(self, **kwargs):
+            return True
+        def click_css(self, *args, **kwargs):
+            return True
+        def navigate(self, url):
+            return {"ok": True, "final_url": url}
+
+    monkeypatch.setattr("src.extractor.selenium_extractor.DomInspector", Dom)
+    batch = SeleniumExtractor().extract("https://example.com", {**config, "max_pages": 2})
+    assert batch.metadata["mechanism"] == mechanism
+    assert batch.metadata["stopped_reason"] == "límite de capturas alcanzado"
+    assert [p.metadata["interaction"] for p in batch.pages] == ["carga_inicial", mechanism]
+
+
+def test_dynamic_coverage_is_in_summary_and_text_report(local_server, tmp_path):
+    from src.config.settings import PathConfig
+    config = ProjectConfig(paths=PathConfig(base_dir=tmp_path))
+    target = AnalysisTarget(url=f"{local_server}/", allow_private_network=True)
+    batch = ExtractionBatch(method="selenium", pages=[PageSnapshot(
+        url=target.url, html=PAGE_1, method="selenium")], metadata={
+            "mechanism": "cargar_mas", "stopped_reason": "límite de capturas alcanzado"})
+    diagnosis = _diagnosis(target.url)
+    diagnosis["pagination"]["load_more_button"] = True
+    with patch.object(ExtractionService, "_acquire", return_value=batch):
+        summary = ExtractionService(config).run(target, diagnosis=diagnosis,
+            schema_config=SCHEMA_CONFIG, max_pages=1, delay_s=0, formats=["json"])
+    assert summary["status"] == "ok", summary["errors"]
+    coverage = summary["coverage"]
+    assert coverage["mechanism"] == "cargar_mas"
+    assert any("duplicados" in warning for warning in coverage["warnings"])
+    assert any("no se configuró" in warning for warning in coverage["warnings"])
+    report = Path(summary["report_files"]["txt"]).read_text(encoding="utf-8")
+    assert "límite de capturas alcanzado" in report
+    assert "no demuestran" in report

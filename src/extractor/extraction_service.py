@@ -175,6 +175,26 @@ class ExtractionService:
             "record_limit_reached": False,
             "warnings": [],
         }
+        if strategy_used == "selenium":
+            coverage = summary["coverage"]
+            coverage["mechanism"] = batch.metadata.get("mechanism", "desconocido")
+            coverage["stopped_reason"] = batch.metadata.get("stopped_reason", "desconocido")
+            if coverage["stopped_reason"] == "límite de capturas alcanzado":
+                coverage["warnings"].append(
+                    "Se alcanzó el límite de capturas; puede existir más contenido."
+                )
+            if coverage["mechanism"] in ("scroll_infinito", "cargar_mas"):
+                coverage["warnings"].append(
+                    "Las capturas dinámicas pueden contener registros repetidos; "
+                    "el límite de registros se aplica antes de eliminar duplicados."
+                )
+            if pagination.get("load_more_button") and not extraction_config["load_more_selector"]:
+                coverage["warnings"].append(
+                    "Se detectó un botón de carga, pero no se configuró un selector para usarlo."
+                )
+            coverage["warnings"].append(
+                "Las capturas obtenidas no demuestran que el contenido esté completo."
+            )
         if strategy_used == "selenium_manual":
             summary["coverage"]["warnings"].append(
                 "El modo manual captura únicamente la página verificada; "

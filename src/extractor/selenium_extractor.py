@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from src.config.settings import ProjectConfig
@@ -55,6 +56,13 @@ class SeleniumExtractor(BaseExtractor):
             }
         )
 
+        mechanism = ("scroll_infinito" if infinite_scroll else
+                     "cargar_mas" if load_more_selector else
+                     "paginacion" if next_selector else "ninguno")
+        batch.metadata["mechanism"] = mechanism
+        batch.metadata["stopped_reason"] = "sin determinar"
+        interaction = "carga_inicial"
+
         wait = self._wait_after_load_s
         if wait is None:
             wait = float(config.get("wait_after_load_s", 2.0) or 2.0)
@@ -85,8 +93,9 @@ class SeleniumExtractor(BaseExtractor):
                     html = dom.get_rendered_html()
                     if not html:
                         batch.errors.append("Selenium no devolvió HTML renderizado.")
+                        batch.metadata["stopped_reason"] = "sin HTML renderizado"
                         break
-                    fingerprint = html[:2000] + str(len(html))
+                    fingerprint = hashlib.sha256(html.encode("utf-8")).hexdigest()
                     if fingerprint in seen_html:
                         batch.metadata["stopped_reason"] = "contenido sin cambios"
                         break
@@ -102,7 +111,7 @@ class SeleniumExtractor(BaseExtractor):
                             final_url=sanitize_url(current_url),
                             method=self.method,
                             page_number=page_number,
-                            metadata={"interaction": "carga_inicial" if page_number == 1 else "paginacion"},
+                            metadata={"interaction": interaction},
                         )
                     )
                     logger.info(
@@ -111,6 +120,7 @@ class SeleniumExtractor(BaseExtractor):
                         sanitize_url(current_url),
                     )
                     if page_number >= max_pages:
+                        batch.metadata["stopped_reason"] = "límite de capturas alcanzado"
                         break
 
                     advance = self._advance(
@@ -125,9 +135,11 @@ class SeleniumExtractor(BaseExtractor):
                     if not advance.get("ok"):
                         batch.metadata["stopped_reason"] = advance.get("reason", "sin más contenido")
                         break
+                    interaction = mechanism
                     if advance.get("url"):
                         current_url = advance["url"]
         except Exception as exc:
+            batch.metadata["stopped_reason"] = "error durante adquisición"
             batch.errors.append(f"Error al extraer con Selenium: {exc}")
             logger.exception("Error en SeleniumExtractor")
 
