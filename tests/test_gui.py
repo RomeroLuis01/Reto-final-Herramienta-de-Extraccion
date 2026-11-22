@@ -3,7 +3,44 @@ import queue
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from src.gui.app import ExtractionApp
+from src.gui.app import CUSTOM_SITE, TEST_SITES, ExtractionApp
+
+
+def test_preset_sites_fill_url_without_changing_other_options():
+    app = ExtractionApp.__new__(ExtractionApp)
+    app.site = MagicMock()
+    app.url = MagicMock()
+    app.strategy = MagicMock()
+    app.pages = MagicMock()
+    app.records = MagicMock()
+    assert len(TEST_SITES) == 5
+    for name, url in TEST_SITES.items():
+        app.site.get.return_value = name
+        app._select_site()
+        app.url.set.assert_called_with(url)
+    app.strategy.set.assert_not_called()
+    app.pages.set.assert_not_called()
+    app.records.set.assert_not_called()
+
+
+def test_manual_url_edit_marks_site_custom_without_overwriting_url():
+    app = ExtractionApp.__new__(ExtractionApp)
+    app.site = MagicMock()
+    app.url = MagicMock()
+    app.site.get.return_value = "NASA"
+    app.url.get.return_value = "https://example.com/custom"
+    app._sync_site()
+    app.site.set.assert_called_once_with(CUSTOM_SITE)
+    app.url.set.assert_not_called()
+
+
+def test_selecting_custom_site_keeps_existing_url():
+    app = ExtractionApp.__new__(ExtractionApp)
+    app.site = MagicMock()
+    app.url = MagicMock()
+    app.site.get.return_value = CUSTOM_SITE
+    app._select_site()
+    app.url.set.assert_not_called()
 
 
 def test_worker_diagnoses_and_extracts_using_same_diagnosis():

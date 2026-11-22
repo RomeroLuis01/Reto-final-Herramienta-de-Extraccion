@@ -19,6 +19,15 @@ from src.monitor.reporter import DiagnosticReporter
 from src.selector.builder import load_schema_file
 from src.utils.profiles import ProfileManager
 
+TEST_SITES = {
+    "LeetCode — lista de problemas": "https://leetcode.com/problemset/",
+    "NASA": "https://www.nasa.gov/",
+    "Books to Scrape": "https://books.toscrape.com/",
+    "Quotes to Scrape — JavaScript": "https://quotes.toscrape.com/js/",
+    "reCAPTCHA — demostración de formulario": "https://www.google.com/recaptcha/api2/demo",
+}
+CUSTOM_SITE = "URL personalizada"
+
 
 class ExtractionApp:
     """Ventana principal; el trabajo de red se ejecuta fuera del hilo de Tk."""
@@ -31,6 +40,8 @@ class ExtractionApp:
         root.geometry("900x720")
         root.minsize(680, 500)
         self.url = tk.StringVar()
+        self.site = tk.StringVar(value=CUSTOM_SITE)
+        self.url.trace_add("write", self._sync_site)
         self.label = tk.StringVar()
         self.strategy = tk.StringVar(value="auto")
         self.auth = tk.StringVar(value="none")
@@ -48,30 +59,34 @@ class ExtractionApp:
         frame = ttk.Frame(self.root, padding=12)
         frame.pack(fill="both", expand=True)
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(8, weight=1)
-        ttk.Label(frame, text="URL del sitio").grid(row=0, column=0, sticky="w", pady=3)
-        ttk.Entry(frame, textvariable=self.url).grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
-        ttk.Label(frame, text="Etiqueta (opcional)").grid(row=1, column=0, sticky="w", pady=3)
-        ttk.Entry(frame, textvariable=self.label).grid(row=1, column=1, columnspan=3, sticky="ew", pady=3)
-        ttk.Checkbutton(frame, text="Analizar contenido dinámico con Selenium", variable=self.selenium).grid(row=2, column=1, sticky="w")
-        ttk.Label(frame, text="Autenticación HTTP").grid(row=2, column=2, sticky="e")
-        ttk.Combobox(frame, textvariable=self.auth, values=("none", "basic", "bearer"), state="readonly", width=8).grid(row=2, column=3, sticky="w")
-        ttk.Label(frame, text="Estrategia").grid(row=3, column=0, sticky="w", pady=3)
-        ttk.Combobox(frame, textvariable=self.strategy, values=("auto", "requests", "selenium", "api"), state="readonly", width=14).grid(row=3, column=1, sticky="w")
-        ttk.Label(frame, text="Máx. páginas").grid(row=3, column=2, sticky="e", padx=5)
-        ttk.Entry(frame, textvariable=self.pages, width=8).grid(row=3, column=3, sticky="w")
-        ttk.Label(frame, text="Máx. registros").grid(row=4, column=0, sticky="w", pady=3)
-        ttk.Entry(frame, textvariable=self.records, width=10).grid(row=4, column=1, sticky="w")
+        frame.rowconfigure(9, weight=1)
+        ttk.Label(frame, text="Sitio de prueba").grid(row=0, column=0, sticky="w", pady=3)
+        sites = ttk.Combobox(frame, textvariable=self.site, values=(CUSTOM_SITE, *TEST_SITES), state="readonly")
+        sites.grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
+        sites.bind("<<ComboboxSelected>>", self._select_site)
+        ttk.Label(frame, text="URL del sitio").grid(row=1, column=0, sticky="w", pady=3)
+        ttk.Entry(frame, textvariable=self.url).grid(row=1, column=1, columnspan=3, sticky="ew", pady=3)
+        ttk.Label(frame, text="Etiqueta (opcional)").grid(row=2, column=0, sticky="w", pady=3)
+        ttk.Entry(frame, textvariable=self.label).grid(row=2, column=1, columnspan=3, sticky="ew", pady=3)
+        ttk.Checkbutton(frame, text="Analizar contenido dinámico con Selenium", variable=self.selenium).grid(row=3, column=1, sticky="w")
+        ttk.Label(frame, text="Autenticación HTTP").grid(row=3, column=2, sticky="e")
+        ttk.Combobox(frame, textvariable=self.auth, values=("none", "basic", "bearer"), state="readonly", width=8).grid(row=3, column=3, sticky="w")
+        ttk.Label(frame, text="Estrategia").grid(row=4, column=0, sticky="w", pady=3)
+        ttk.Combobox(frame, textvariable=self.strategy, values=("auto", "requests", "selenium", "api"), state="readonly", width=14).grid(row=4, column=1, sticky="w")
+        ttk.Label(frame, text="Máx. páginas").grid(row=4, column=2, sticky="e", padx=5)
+        ttk.Entry(frame, textvariable=self.pages, width=8).grid(row=4, column=3, sticky="w")
+        ttk.Label(frame, text="Máx. registros").grid(row=5, column=0, sticky="w", pady=3)
+        ttk.Entry(frame, textvariable=self.records, width=10).grid(row=5, column=1, sticky="w")
         formats = ttk.Frame(frame)
-        formats.grid(row=5, column=1, columnspan=3, sticky="w")
-        ttk.Label(frame, text="Formatos").grid(row=5, column=0, sticky="w")
+        formats.grid(row=6, column=1, columnspan=3, sticky="w")
+        ttk.Label(frame, text="Formatos").grid(row=6, column=0, sticky="w")
         for name, value in self.formats.items():
             ttk.Checkbutton(formats, text=name.upper(), variable=value).pack(side="left", padx=3)
-        ttk.Label(frame, text="Esquema JSON (opcional)").grid(row=6, column=0, sticky="w", pady=3)
-        ttk.Entry(frame, textvariable=self.schema).grid(row=6, column=1, columnspan=2, sticky="ew")
-        ttk.Button(frame, text="Examinar…", command=self._browse).grid(row=6, column=3, padx=5)
+        ttk.Label(frame, text="Esquema JSON (opcional)").grid(row=7, column=0, sticky="w", pady=3)
+        ttk.Entry(frame, textvariable=self.schema).grid(row=7, column=1, columnspan=2, sticky="ew")
+        ttk.Button(frame, text="Examinar…", command=self._browse).grid(row=7, column=3, padx=5)
         actions = ttk.Frame(frame)
-        actions.grid(row=7, column=0, columnspan=4, sticky="w", pady=8)
+        actions.grid(row=8, column=0, columnspan=4, sticky="w", pady=8)
         self.diagnose_button = ttk.Button(actions, text="Diagnosticar", command=lambda: self._start(False))
         self.diagnose_button.pack(side="left", padx=(0, 8))
         self.extract_button = ttk.Button(actions, text="Diagnosticar y extraer", command=lambda: self._start(True))
@@ -79,9 +94,19 @@ class ExtractionApp:
         ttk.Button(actions, text="Ver reportes", command=lambda: FileViewer(self.root, self.config.paths.reports_dir, "reports")).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Ver logs", command=lambda: FileViewer(self.root, self.config.paths.logs_dir, "logs")).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Ver datos", command=lambda: DatasetViewer(self.root, self.config.paths.data_dir, self.config.paths.profiles_dir)).pack(side="left", padx=(8, 0))
-        ttk.Label(frame, textvariable=self.status).grid(row=9, column=0, columnspan=4, sticky="w")
+        ttk.Label(frame, textvariable=self.status).grid(row=10, column=0, columnspan=4, sticky="w")
         self.output = scrolledtext.ScrolledText(frame, wrap="word", state="disabled")
-        self.output.grid(row=8, column=0, columnspan=4, sticky="nsew")
+        self.output.grid(row=9, column=0, columnspan=4, sticky="nsew")
+
+    def _select_site(self, _event: Any = None) -> None:
+        url = TEST_SITES.get(self.site.get())
+        if url:
+            self.url.set(url)
+
+    def _sync_site(self, *_args: str) -> None:
+        selected = self.site.get()
+        if selected in TEST_SITES and self.url.get() != TEST_SITES[selected]:
+            self.site.set(CUSTOM_SITE)
 
     def _browse(self) -> None:
         path = filedialog.askopenfilename(title="Seleccionar esquema", filetypes=[("JSON", "*.json"), ("Todos", "*.*")])

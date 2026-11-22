@@ -183,6 +183,11 @@ El conjunto incluye 146 pruebas: 130 del Avance 1 y 16 nuevas del Avance 2 (extr
 
 ### Interfaz gráfica
 
+El menú **Sitio de prueba** permite seleccionar LeetCode, NASA, Books to Scrape,
+Quotes to Scrape con JavaScript o la demostración de formulario reCAPTCHA de
+Google. Esta última sirve para probar la detección de CAPTCHA; no representa
+una fuente de datos protegidos. La URL también se puede escribir o editar.
+
 Ejecute `python gui.py`. La ventana permite diagnosticar, configurar y ejecutar
 extracciones; consulte [el manual](docs/manual_usuario.md) para más detalles.
 
