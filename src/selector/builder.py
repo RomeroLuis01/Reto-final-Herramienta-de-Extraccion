@@ -133,12 +133,23 @@ class SchemaBuilder:
         best_score = 0
         for selector in _GENERIC_RECORD_SELECTORS:
             try:
-                nodes = soup.select(selector)
+                all_nodes = soup.select(selector)
             except Exception:
                 continue
+            nodes = [node for node in all_nodes if not self._is_navigation(node)]
+            if len(nodes) != len(all_nodes):
+                selector = f":is({selector}):not(nav *, header *, footer *, aside *, [role='navigation'] *)"
             schema = self._schema_from_generic(nodes, selector)
             score = len(schema.fields) * 10 + min(len(nodes), 20)
             if schema.fields and score > best_score:
+                best, best_score = schema, score
+
+        # Algunas aplicaciones modernas representan cada fila con divs, no con
+        # tablas ni listas HTML. Solo inferir grupos de hermanos con contenido
+        # estructurado y enlaces con texto; nunca agrupar por clase global.
+        for schema, count in self._repeated_div_schemas(soup):
+            score = len(schema.fields) * 10 + min(count, 20)
+            if score > best_score:
                 best, best_score = schema, score
 
         # Los componentes web usan etiquetas propias, que no aparecen entre
@@ -197,6 +208,95 @@ class SchemaBuilder:
             len(best.fields),
         )
         return best
+
+    @staticmethod
+    def _is_navigation(node: Any) -> bool:
+        return bool(node.find_parent(["nav", "header", "footer", "aside"]) or
+                    node.find_parent(attrs={"role": "navigation"}))
+
+    @staticmethod
+    def _element_path(node: Any, stop: Any | None = None) -> str:
+        """Ruta estructural acotada, sin usar clases de presentación como campos."""
+        parts = []
+        while node is not None and getattr(node, "name", None) not in (None, "[document]") and node is not stop:
+            siblings = node.find_previous_siblings(node.name)
+            parts.append(f"{node.name}:nth-of-type({len(siblings) + 1})")
+            node = node.parent
+        return " > ".join(reversed(parts))
+
+    @classmethod
+    def _repeated_div_schemas(cls, soup: Any) -> list[tuple[ExtractionSchema, int]]:
+        candidates: list[tuple[ExtractionSchema, int]] = []
+        for parent in soup.find_all(True):
+            if parent.name in ("nav", "header", "footer", "aside") or cls._is_navigation(parent):
+                continue
+            groups: dict[tuple[str, str], list[Any]] = {}
+            for child in parent.find_all("div", recursive=False):
+                role = str(child.get("role") or "")
+                if role and role != "row":
+                    continue
+                classes = " ".join(child.get("class", []))
+                # Las filas semánticas pueden alternar colores o clases CSS.
+                groups.setdefault((role, "" if role == "row" else classes), []).append(child)
+            for (role, classes), nodes in groups.items():
+                if len(nodes) < 2 or any(cls._is_navigation(node) for node in nodes):
+                    continue
+                # Los motores anteriores ya conocen estos contenedores.
+                if any(word in classes.lower() for word in ("product", "quote", "card", "item", "result", "entry")):
+                    continue
+                sample = nodes[:3]
+                links = [next((a for a in node.find_all("a", href=True)
+                               if a.get_text(" ", strip=True)), None) for node in sample]
+                if any(link is None for link in links):
+                    continue
+                children = nodes[0].find_all(recursive=False)
+                if len(children) < 3:
+                    continue
+                # Selección exacta del grupo, restringida a su padre.
+                child_selector = "div"
+                if role:
+                    child_selector += f"[role={json.dumps(role)}]"
+                if classes:
+                    child_selector += f"[class={json.dumps(classes, ensure_ascii=False)}]"
+                parent_path = cls._element_path(parent)
+                base = f"{parent_path} > {child_selector}" if parent_path else child_selector
+                try:
+                    if len(soup.select(base)) != len(nodes):
+                        continue
+                except Exception:
+                    continue
+                link_path = cls._element_path(links[0], nodes[0])
+                if not all(cls._element_path(link, node) == link_path
+                           for link, node in zip(links, sample)):
+                    continue
+                anchor = f"{child_selector} > {link_path}"
+                fields = [FieldSelector("titulo", anchor, attribute="text"),
+                          FieldSelector("enlace", anchor, attribute="href")]
+                used = {field.name for field in fields}
+                for index, child in enumerate(children, 1):
+                    if child is links[0] or child.find("a", href=True):
+                        continue
+                    text = child.get_text(" ", strip=True)
+                    if not text or len(text) > 160:
+                        continue
+                    peers = [node.find_all(recursive=False) for node in sample]
+                    if any(len(peer) < index or peer[index - 1].name != child.name
+                           or not peer[index - 1].get_text(" ", strip=True)
+                           for peer in peers):
+                        continue
+                    selector = f"{child_selector} > *:nth-child({index})"
+                    label = child.get("data-field") or f"campo_{index}"
+                    name = cls._safe_name(str(label), index - 1)
+                    if name in used:
+                        name = f"{name}_{index}"
+                    used.add(name)
+                    fields.append(FieldSelector(name, selector, attribute="text"))
+                if len(fields) < 3:
+                    continue
+                candidates.append((ExtractionSchema(name="filas_repetidas", base_selector=base,
+                                                   description="Filas repetidas con enlace y campos",
+                                                   fields=fields), len(nodes)))
+        return candidates
 
     @staticmethod
     def _schema_from_table(table: Any, table_selector: str) -> ExtractionSchema | None:
