@@ -199,7 +199,13 @@ class ExtractionService:
         except Exception as exc:
             summary["status"] = "error"
             summary["finished_at"] = datetime.now().isoformat(timespec="seconds")
-            summary["errors"].append(f"No se pudo construir el esquema: {exc}")
+            if strategy_used == "selenium_manual":
+                summary["errors"].append(
+                    "Se verificó la página, pero no se encontraron registros extraíbles "
+                    "o no fue posible inferir su estructura."
+                )
+            else:
+                summary["errors"].append(f"No se pudo construir el esquema: {exc}")
             logger.exception("Error al construir esquema de extracción")
             self._write_report(summary)
             return summary
@@ -218,6 +224,8 @@ class ExtractionService:
         if not raw_records:
             summary["status"] = "error"
             summary["errors"].append(
+                "Se verificó la página, pero no se encontraron registros extraíbles."
+                if strategy_used == "selenium_manual" else
                 "No se seleccionaron registros; revise los selectores y el contenido obtenido."
             )
             summary["finished_at"] = datetime.now().isoformat(timespec="seconds")

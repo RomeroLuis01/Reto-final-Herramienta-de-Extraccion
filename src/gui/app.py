@@ -192,8 +192,8 @@ class ExtractionApp:
             accept = "Abrir navegador"
         elif request["stage"] == "retry":
             text = (request["feedback"] + "\n\nSi necesita completar el formulario, hágalo manualmente en el navegador. "
-                    "Después vuelva a cargar la URL original para comprobar una respuesta nueva, "
-                    "o cancele. La casilla marcada no confirma por sí sola el acceso.")
+                    "Si ya ve una confirmación, permanezca en esa página y pulse Comprobar de nuevo, "
+                    "sin recargar el formulario. La casilla marcada no confirma por sí sola el acceso.")
             accept = "Comprobar de nuevo"
         else:
             text = ("Completa la verificación o inicio de sesión en el navegador abierto. "

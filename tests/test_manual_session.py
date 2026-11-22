@@ -134,6 +134,7 @@ def test_manual_retry_keeps_session_and_requires_new_response():
     dom._driver.execute_cdp_cmd.side_effect = [
         {"frameTree": {"frame": {"id": "main", "loaderId": "loader"}}},
         {"frameTree": {"frame": {"id": "main", "loaderId": "new"}}},
+        {"frameTree": {"frame": {"id": "main", "loaderId": "new"}}},
     ]
     target = register_target("https://example.com/data")
     retry = MagicMock(return_value=True)
@@ -453,3 +454,112 @@ def test_manual_chrome_initial_success_without_reload(tmp_path):
     finally:
         server.shutdown()
         server.server_close()
+
+@pytest.mark.selenium
+@pytest.mark.parametrize("initial_check", [False, True])
+def test_manual_chrome_post_confirmation_same_session(tmp_path, monkeypatch, initial_check):
+    from src.inspector.dom_inspector import DomInspector
+    state = {"posts": 0}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"<html><body><form method='post'><div class='g-recaptcha'>Complete</div><button id='send' type='submit'>Submit</button></form></body></html>")
+
+        def do_POST(self):
+            state["posts"] += 1
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"<html><body><article><p>Verification Success</p></article></body></html>")
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    target = register_target(f"http://127.0.0.1:{server.server_port}/data", allow_private_network=True)
+    active = {}
+
+    class ObservableDom(DomInspector):
+        def __enter__(self):
+            active["dom"] = super().__enter__()
+            return active["dom"]
+
+    monkeypatch.setattr("src.extractor.manual_session.DomInspector", ObservableDom)
+    def submit():
+        active["dom"]._driver.find_element("id", "send").click()
+        return True
+    try:
+        result = acquire_manual(target, ProjectConfig(), (lambda: True) if initial_check else submit,
+                                (lambda *_: submit()) if initial_check else None)
+        assert result.pages, result.errors
+        assert "Verification Success" in result.pages[0].html
+        assert state["posts"] == 1
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_retry_reuses_http_evidence_only_for_same_document():
+    dom = prepare_dom()
+    dom._driver.get_log.side_effect = [[performance()], []]
+    body_empty = MagicMock(text="")
+    body_ready = MagicMock(text="Dato autorizado")
+    dom._driver.find_element.side_effect = [body_empty, body_ready]
+    target = register_target("https://example.com/data")
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.HtmlAnalyzer") as analyzer:
+        cls.return_value.__enter__.return_value = dom
+        analyzer.return_value.analyze.return_value = {}
+        result = acquire_manual(target, ProjectConfig(), lambda: True, lambda *_: True)
+    assert len(result.pages) == 1
+    assert dom._driver.get_log.call_count == 2
+
+
+def test_changed_document_during_verification_is_never_captured():
+    dom = prepare_dom()
+    dom._driver.execute_cdp_cmd.side_effect = [
+        {"frameTree": {"frame": {"id": "main", "loaderId": "loader"}}},
+        {"frameTree": {"frame": {"id": "main", "loaderId": "other"}}},
+    ]
+    target = register_target("https://example.com/data")
+    with patch("src.extractor.manual_session.validate_url_security", return_value=(True, "ok")), \
+         patch("src.extractor.manual_session.DomInspector") as cls, \
+         patch("src.extractor.manual_session.HtmlAnalyzer") as analyzer:
+        cls.return_value.__enter__.return_value = dom
+        analyzer.return_value.analyze.return_value = {}
+        result = acquire_manual(target, ProjectConfig(), lambda: True)
+    assert not result.pages
+    assert "cambió" in result.errors[0]
+
+
+def test_verified_confirmation_without_records_reports_no_dataset(tmp_path):
+    from src.config.settings import PathConfig
+    target = register_target("https://example.com/data")
+    config = ProjectConfig(paths=PathConfig(base_dir=tmp_path))
+    batch = ExtractionBatch(method="selenium_manual", pages=[PageSnapshot(
+        url=target.url, html="<html><body>Verification Success... Hooray!</body></html>",
+        final_url=target.url, method="selenium_manual", status_code=200)])
+    with patch("src.extractor.manual_session.acquire_manual", return_value=batch):
+        result = ExtractionService(config).run(target, diagnosis=diagnosis(), manual_wait=lambda: True,
+                                               formats=["json"], max_pages=1)
+    assert result["status"] == "error"
+    assert result["manual_verification"] is True
+    assert result["outputs"] == {}
+    assert any("no se encontraron registros extraíbles" in error for error in result["errors"])
+
+
+def test_evidence_does_not_keep_sensitive_url_parameters():
+    from src.extractor.manual_session import _verified_status
+    target = "https://example.com/data?token=secret_value"
+    dom = prepare_dom(url=target)
+    dom._driver.get_log.return_value = [performance(url=target)]
+    evidence = {}
+    assert _verified_status(dom._driver, target, evidence) == 200
+    assert "secret_value" not in repr(evidence)
+    assert len(evidence) == 1
