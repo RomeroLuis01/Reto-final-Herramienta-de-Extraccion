@@ -67,6 +67,8 @@ class ExtractionApp:
         self.auth = tk.StringVar(value="none")
         self.pages = tk.StringVar(value=str(self.config.extraction.max_pages))
         self.records = tk.StringVar(value=str(self.config.extraction.max_records))
+        self.infinite_scroll = tk.BooleanVar(value=False)
+        self.load_more_selector = tk.StringVar()
         self.schema = tk.StringVar()
         self.manual_schema: dict[str, Any] | None = None
         self.manual_base = ""
@@ -83,7 +85,7 @@ class ExtractionApp:
         frame = ttk.Frame(self.root, padding=12)
         frame.pack(fill="both", expand=True)
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(10, weight=1)
+        frame.rowconfigure(12, weight=1)
         ttk.Label(frame, text="Sitio de prueba").grid(row=0, column=0, sticky="w", pady=3)
         sites = ttk.Combobox(frame, textvariable=self.site, values=(CUSTOM_SITE, *TEST_SITES), state="readonly")
         sites.grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
@@ -97,7 +99,7 @@ class ExtractionApp:
         ttk.Combobox(frame, textvariable=self.auth, values=("none", "basic", "bearer"), state="readonly", width=8).grid(row=3, column=3, sticky="w")
         ttk.Label(frame, text="Estrategia").grid(row=4, column=0, sticky="w", pady=3)
         ttk.Combobox(frame, textvariable=self.strategy, values=("auto", "requests", "selenium", "api"), state="readonly", width=14).grid(row=4, column=1, sticky="w")
-        ttk.Label(frame, text="Máx. páginas").grid(row=4, column=2, sticky="e", padx=5)
+        ttk.Label(frame, text="Máx. páginas/capturas").grid(row=4, column=2, sticky="e", padx=5)
         ttk.Entry(frame, textvariable=self.pages, width=8).grid(row=4, column=3, sticky="w")
         ttk.Label(frame, text="Máx. registros").grid(row=5, column=0, sticky="w", pady=3)
         ttk.Entry(frame, textvariable=self.records, width=10).grid(row=5, column=1, sticky="w")
@@ -112,8 +114,12 @@ class ExtractionApp:
         ttk.Button(frame, text="Configurar sección y campos…", command=self._edit_manual_schema).grid(
             row=8, column=0, columnspan=2, sticky="w")
         ttk.Label(frame, textvariable=self.manual_schema_status).grid(row=8, column=2, columnspan=2, sticky="w")
+        ttk.Checkbutton(frame, text="Activar scroll infinito (Selenium)",
+                        variable=self.infinite_scroll).grid(row=9, column=0, columnspan=2, sticky="w")
+        ttk.Label(frame, text="Selector CSS cargar más (Selenium):").grid(row=10, column=0, sticky="w")
+        ttk.Entry(frame, textvariable=self.load_more_selector).grid(row=10, column=1, columnspan=3, sticky="ew")
         actions = ttk.Frame(frame)
-        actions.grid(row=9, column=0, columnspan=4, sticky="w", pady=8)
+        actions.grid(row=11, column=0, columnspan=4, sticky="w", pady=8)
         self.diagnose_button = ttk.Button(actions, text="Diagnosticar", command=lambda: self._start(False))
         self.diagnose_button.pack(side="left", padx=(0, 8))
         self.extract_button = ttk.Button(actions, text="Diagnosticar y extraer", command=lambda: self._start(True))
@@ -121,9 +127,9 @@ class ExtractionApp:
         ttk.Button(actions, text="Ver reportes", command=lambda: FileViewer(self.root, self.config.paths.reports_dir, "reports")).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Ver logs", command=lambda: FileViewer(self.root, self.config.paths.logs_dir, "logs")).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Ver datos", command=lambda: DatasetViewer(self.root, self.config.paths.data_dir, self.config.paths.profiles_dir)).pack(side="left", padx=(8, 0))
-        ttk.Label(frame, textvariable=self.status).grid(row=11, column=0, columnspan=4, sticky="w")
+        ttk.Label(frame, textvariable=self.status).grid(row=13, column=0, columnspan=4, sticky="w")
         self.output = scrolledtext.ScrolledText(frame, wrap="word", state="disabled")
-        self.output.grid(row=10, column=0, columnspan=4, sticky="nsew")
+        self.output.grid(row=12, column=0, columnspan=4, sticky="nsew")
 
     def _select_site(self, _event: Any = None) -> None:
         url = TEST_SITES.get(self.site.get())
@@ -186,9 +192,22 @@ class ExtractionApp:
 
     def _start(self, extract: bool) -> None:
         try:
+            scroll = self.infinite_scroll.get()
+            load_more = self.load_more_selector.get().strip()
+            if extract and scroll and load_more:
+                raise ValueError("Seleccione scroll infinito o botón cargar más, no ambos.")
+            if extract and (scroll or load_more) and self.strategy.get() != "selenium":
+                raise ValueError("Para scroll o cargar más seleccione la estrategia selenium.")
+            rules: dict[str, Any] = {}
+            if scroll:
+                rules["infinite_scroll"] = True
+            elif load_more:
+                # Un botón elegido explícitamente tiene prioridad sobre la
+                # detección automática de scroll del diagnóstico.
+                rules.update({"infinite_scroll": False, "load_more_selector": load_more})
             target = register_target(self.url.get(), label=self.label.get(),
                                      respect_robots_txt=self.config.respect_robots_txt,
-                                     auth_mode=self.auth.get())
+                                     auth_mode=self.auth.get(), extraction_rules=rules)
             pages, records = int(self.pages.get()), int(self.records.get())
             if pages < 1 or records < 1:
                 raise ValueError("Los límites deben ser enteros positivos.")

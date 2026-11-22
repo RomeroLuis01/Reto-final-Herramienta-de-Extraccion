@@ -110,3 +110,54 @@ def test_worker_passes_manual_schema_to_extraction():
         app._run(options)
         assert service.return_value.run.call_args.kwargs["schema_config"] is manual
         assert service.return_value.run.call_args.kwargs["schema_origin"] == "interfaz"
+
+
+def test_start_passes_dynamic_rules_and_keeps_other_options():
+    from src.config.settings import register_target
+
+    app = ExtractionApp.__new__(ExtractionApp)
+    app.root = MagicMock()
+    app.config = SimpleNamespace(respect_robots_txt=True)
+    app.url = MagicMock(); app.url.get.return_value = "https://example.com"
+    app.label = MagicMock(); app.label.get.return_value = "Example"
+    app.auth = MagicMock(); app.auth.get.return_value = "none"
+    app.pages = MagicMock(); app.pages.get.return_value = "2"
+    app.records = MagicMock(); app.records.get.return_value = "10"
+    app.schema = MagicMock(); app.schema.get.return_value = ""
+    app.manual_schema = None
+    app.strategy = MagicMock(); app.strategy.get.return_value = "selenium"
+    app.selenium = MagicMock(); app.selenium.get.return_value = True
+    app.infinite_scroll = MagicMock(); app.infinite_scroll.get.return_value = False
+    app.load_more_selector = MagicMock(); app.load_more_selector.get.return_value = " #more "
+    fmt = MagicMock(); fmt.get.return_value = True
+    app.formats = {"json": fmt}
+    app.diagnose_button = MagicMock(); app.extract_button = MagicMock()
+    app.status = MagicMock(); app._append = MagicMock()
+    with patch("src.gui.app.register_target", wraps=register_target) as register, \
+         patch("src.gui.app.threading.Thread") as worker:
+        app._start(True)
+        assert register.call_args.kwargs["extraction_rules"] == {
+            "load_more_selector": "#more", "infinite_scroll": False}
+        options = worker.call_args.kwargs["args"][0]
+        assert options["target"].extraction_rules == register.call_args.kwargs["extraction_rules"]
+        assert (options["strategy"], options["max_pages"], options["max_records"], options["formats"]) == (
+            "selenium", 2, 10, ["json"])
+        app.load_more_selector.get.return_value = ""
+        app.infinite_scroll.get.return_value = True
+        app._start(True)
+        assert register.call_args.kwargs["extraction_rules"] == {"infinite_scroll": True}
+        app.infinite_scroll.get.return_value = False
+        app._start(True)
+        assert register.call_args.kwargs["extraction_rules"] == {}
+
+
+def test_dynamic_settings_reject_conflicting_mechanisms():
+    app = ExtractionApp.__new__(ExtractionApp)
+    app.root = MagicMock()
+    app.infinite_scroll = MagicMock(); app.infinite_scroll.get.return_value = True
+    app.load_more_selector = MagicMock(); app.load_more_selector.get.return_value = "#more"
+    with patch("src.gui.app.messagebox.showerror") as error, \
+         patch("src.gui.app.threading.Thread") as thread:
+        app._start(True)
+    assert "no ambos" in error.call_args.args[1]
+    thread.assert_not_called()

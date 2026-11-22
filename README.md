@@ -201,6 +201,8 @@ enlace; a; css; href
 
 El tipo y el atributo son opcionales: sus valores por defecto son `css` y `text`. Para JSON/CSV/XML, use `json_path` y nombres o rutas de campos. Pulse **Guardar selección**; la interfaz valida los campos, aunque no verifica que los selectores coincidan con el sitio hasta extraer. **Usar selección automática** limpia esta configuración. Como alternativa, seleccione un archivo en **Esquema JSON**; no combine archivo y selección manual. La inferencia automática intenta descartar navegación, pero revise siempre que la sección y los resultados correspondan a lo deseado.
 
+Para contenido dinámico, elija la estrategia **selenium** y active **Scroll infinito** o escriba el selector CSS del botón en **Selector CSS cargar más**. Las dos opciones son excluyentes. Si no configura ninguna, se conserva la detección automática del diagnóstico. **Máx. páginas/capturas** limita las capturas, incluida la inicial; alcanzarlo no demuestra que se haya obtenido todo el contenido. Consulte el motivo de parada y las advertencias en el resultado y los reportes.
+
 ## Bases de datos externas
 
 Para usar PostgreSQL o MongoDB instale `pip install "psycopg[binary]>=3.1" "pymongo>=4.6"`, configure respectivamente `EXTRACTION_POSTGRES_URI` o `EXTRACTION_MONGODB_URI` y, opcionalmente, `EXTRACTION_MONGODB_DATABASE` en `.env`. Las credenciales no se incluyen en los reportes. Seleccione `postgresql` o `mongodb` con `--format` o en la interfaz. PostgreSQL crea tablas con una columna JSONB `record`; MongoDB crea colecciones con documentos que contienen `record`. Los conjuntos originales y procesados se guardan por separado. Se requiere acceso a un servidor configurado por el usuario.
