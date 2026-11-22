@@ -193,3 +193,21 @@ class TestWebInspectorControlled:
         paths = reporter.generate(diagnosis)
         txt = paths["txt"].read_text(encoding="utf-8")
         assert "Tamaño DOM dinámico (bytes): None" not in txt
+
+
+def test_sample_callback_is_transient_and_respects_barriers(fixture_url, tmp_path):
+    received = []
+    inspector = WebInspector(ProjectConfig())
+    target = AnalysisTarget(url=f"{fixture_url}/static", allow_private_network=True)
+    diagnosis = inspector.inspect(target, use_selenium=False,
+                                  sample_callback=lambda body, _: received.append(body))
+    assert len(received) == 1 and "Libro 1" in received[0]
+    assert "Libro 1" not in json.dumps(diagnosis)
+    path = ProfileManager(tmp_path / "profiles").save(diagnosis)
+    assert "Libro 1" not in path.read_text(encoding="utf-8")
+    for endpoint in ("/blocked", "/private/data", "/api/items.json"):
+        received.clear()
+        blocked = AnalysisTarget(url=f"{fixture_url}{endpoint}", allow_private_network=True)
+        inspector.inspect(blocked, use_selenium=False,
+                          sample_callback=lambda body, _: received.append(body))
+        assert received == []

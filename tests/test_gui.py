@@ -161,3 +161,55 @@ def test_dynamic_settings_reject_conflicting_mechanisms():
         app._start(True)
     assert "no ambos" in error.call_args.args[1]
     thread.assert_not_called()
+
+
+def test_preview_candidates_show_distinct_sections_without_navigation():
+    from src.gui.selection_preview import preview_candidates
+    html = """<nav><ul><li><a href='/menu'>Menu</a></li><li><a href='/help'>Help</a></li></ul></nav>
+    <main><table><tr><th>Name</th></tr><tr><td>Alpha</td></tr><tr><td>Beta</td></tr></table>
+    <article><h2>A</h2><p>First</p></article><article><h2>B</h2><p>Second</p></article></main>"""
+    candidates = preview_candidates(html, {}, "https://example.com")
+    assert len(candidates) >= 2
+    shown = str([candidate["examples"] for candidate in candidates])
+    assert "Alpha" in shown and "First" in shown
+    assert "Menu" not in shown and "Help" not in shown
+    assert all(candidate["schema"]["fields"] for candidate in candidates)
+
+
+def test_preview_no_sample_yields_no_candidates():
+    from src.gui.selection_preview import preview_candidates
+    assert preview_candidates("", {}, "https://example.com") == []
+
+
+def test_candidate_fields_can_be_edited_as_manual_selection():
+    from src.gui.app import build_manual_schema
+    from src.gui.selection_preview import candidate_fields_text, preview_candidates
+    html = "<article><h2>A</h2><p>First</p></article><article><h2>B</h2><p>Second</p></article>"
+    candidate = preview_candidates(html, {}, "https://example.com")[0]["schema"]
+    lines = candidate_fields_text(candidate)
+    edited = build_manual_schema(candidate["base_selector"], lines.splitlines()[0])
+    assert len(edited["fields"]) == 1
+    assert edited["fields"][0]["name"] == candidate["fields"][0]["name"]
+
+
+def test_worker_queues_preview_without_persisting_html():
+    app = ExtractionApp.__new__(ExtractionApp)
+    app.config = SimpleNamespace(paths=SimpleNamespace(profiles_dir="profiles", reports_dir="reports"))
+    app.messages = queue.Queue()
+    target = SimpleNamespace(url="https://example.com")
+    options = {"target": target, "use_selenium": False, "extract": False,
+               "schema_path": ""}
+    html = "<article><h2>A</h2><p>First</p></article><article><h2>B</h2><p>Second</p></article>"
+    with patch("src.gui.app.ProfileManager") as profiles, \
+         patch("src.gui.app.WebInspector") as inspector, \
+         patch("src.gui.app.DiagnosticReporter"):
+        def inspect(*_args, **kwargs):
+            kwargs["sample_callback"](html, {})
+            return {"url": target.url}
+        inspector.return_value.inspect.side_effect = inspect
+        app._run(options)
+        assert html not in str(profiles.return_value.save.call_args)
+    events = list(app.messages.queue)
+    preview = next(value for kind, value in events if kind == "selection_preview")
+    assert preview[0] == target.url and preview[1]
+    assert html not in str(preview)

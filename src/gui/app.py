@@ -14,6 +14,7 @@ from src.extractor.extraction_service import ExtractionService
 from src.extractor.manual_session import manual_eligible
 from src.inspector.web_inspector import WebInspector
 from src.gui.viewers import DatasetViewer, FileViewer
+from src.gui.selection_preview import candidate_fields_text, preview_candidates
 from src.monitor.logger import setup_logging
 from src.monitor.reporter import DiagnosticReporter
 from src.selector.builder import load_schema_file
@@ -70,6 +71,8 @@ class ExtractionApp:
         self.infinite_scroll = tk.BooleanVar(value=False)
         self.load_more_selector = tk.StringVar()
         self.schema = tk.StringVar()
+        self.preview_candidates: list[dict[str, Any]] = []
+        self.preview_url = ""
         self.manual_schema: dict[str, Any] | None = None
         self.manual_base = ""
         self.manual_fields = ""
@@ -164,6 +167,35 @@ class ExtractionApp:
         fields = scrolledtext.ScrolledText(frame, width=70, height=8)
         fields.insert("1.0", self.manual_fields)
         fields.pack(fill="both", expand=True, pady=8)
+        candidates = self.preview_candidates if self.preview_url == self.url.get().strip() else []
+        if candidates:
+            ttk.Label(frame, text="Candidatos de la muestra HTML estática (revise los ejemplos):").pack(anchor="w")
+            chosen = tk.StringVar(value="0")
+            combo = ttk.Combobox(frame, state="readonly", textvariable=chosen,
+                                 values=[str(i) for i in range(len(candidates))], width=8)
+            combo.pack(anchor="w")
+            examples = scrolledtext.ScrolledText(frame, width=70, height=7, state="disabled")
+            examples.pack(fill="both", expand=True)
+            def show_candidate(_event: Any = None) -> None:
+                candidate = candidates[int(chosen.get())]
+                schema = candidate["schema"]
+                examples.config(state="normal")
+                examples.delete("1.0", "end")
+                examples.insert("1.0", "Sección: " + schema["base_selector"] + "\n" +
+                                json.dumps(candidate["examples"], ensure_ascii=False, indent=2, default=str))
+                examples.config(state="disabled")
+            def use_candidate() -> None:
+                schema = candidates[int(chosen.get())]["schema"]
+                base.delete(0, "end")
+                base.insert(0, schema["base_selector"])
+                fields.delete("1.0", "end")
+                fields.insert("1.0", candidate_fields_text(schema))
+            combo.bind("<<ComboboxSelected>>", show_candidate)
+            show_candidate()
+            ttk.Button(frame, text="Usar candidato y editar", command=use_candidate).pack(anchor="w")
+        else:
+            ttk.Label(frame, text="Sin muestra disponible: diagnostique primero una página HTML accesible y permitida.",
+                      wraplength=600).pack(anchor="w")
         buttons = ttk.Frame(frame)
         buttons.pack(anchor="w")
 
@@ -224,6 +256,8 @@ class ExtractionApp:
         except ValueError as exc:
             messagebox.showerror("Configuración inválida", str(exc), parent=self.root)
             return
+        self.preview_candidates = []
+        self.preview_url = ""
         self.diagnose_button.config(state="disabled")
         self.extract_button.config(state="disabled")
         self.status.set("Procesando…")
@@ -238,7 +272,12 @@ class ExtractionApp:
                       else options.get("manual_schema") if options["extract"] else None)
             profiles = ProfileManager(self.config.paths.profiles_dir)
             previous = profiles.load(target.url)
-            diagnosis = WebInspector(self.config).inspect(target, use_selenium=options["use_selenium"], previous_profile=previous)
+            def sample_ready(html: str, current_diagnosis: dict[str, Any]) -> None:
+                candidates = preview_candidates(html, current_diagnosis, target.url)
+                self.messages.put(("selection_preview", (target.url, candidates)))
+            diagnosis = WebInspector(self.config).inspect(
+                target, use_selenium=options["use_selenium"], previous_profile=previous,
+                sample_callback=sample_ready)
             profile_path = profiles.save(diagnosis)
             reports = DiagnosticReporter(self.config.paths.reports_dir).generate(diagnosis)
             self.messages.put(("text", "Diagnóstico completado.\nPerfil: " + str(profile_path) + "\nReportes: " + ", ".join(map(str, reports.values())) + "\n" + json.dumps(diagnosis, ensure_ascii=False, indent=2, default=str) + "\n"))
@@ -328,6 +367,8 @@ class ExtractionApp:
                 elif kind == "error":
                     self._append("\nError: " + value + "\n")
                     messagebox.showerror("Error", value, parent=self.root)
+                elif kind == "selection_preview":
+                    self.preview_url, self.preview_candidates = value
                 elif kind == "manual_prompt":
                     self._show_manual_prompt(value)
                 elif kind == "done":

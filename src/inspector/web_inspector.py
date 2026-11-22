@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
 from src.config.settings import AnalysisTarget, ProjectConfig, get_config
 from src.inspector.dom_inspector import DomInspector
@@ -52,6 +52,7 @@ class WebInspector:
         target: AnalysisTarget,
         use_selenium: bool = True,
         previous_profile: dict[str, Any] | None = None,
+        sample_callback: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """
         Ejecuta el diagnóstico completo de un sitio web.
@@ -306,6 +307,19 @@ class WebInspector:
         self._finalize_metadata(
             diagnosis, html_analysis, dom_result, steps_executed, start_total
         )
+
+        # Solo la interfaz recibe la muestra temporal; nunca se incluye en el
+        # diagnóstico persistido. Ante barreras o robots indeterminado no se envía.
+        protection = diagnosis.get("protection") or {}
+        if (sample_callback is not None and content_format == "html" and full_body
+                and protection.get("robots_crawl_allowed") is True
+                and not protection.get("blocking_barrier")
+                and not protection.get("auth_required")
+                and not (diagnosis.get("viability") or {}).get("blocked_by_barrier")):
+            try:
+                sample_callback(full_body, diagnosis)
+            except Exception:
+                logger.warning("No se pudo preparar la vista previa de selección")
 
         logger.info(
             "Diagnóstico completado: %s — Viabilidad: %s",
